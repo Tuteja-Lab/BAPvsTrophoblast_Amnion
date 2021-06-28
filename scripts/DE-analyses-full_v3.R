@@ -206,7 +206,23 @@ BAPvsSTB.down <- res.BAPvsSTBdata %>%
   select(Gene)
 # for converting ensembl gene id and version -> ensembl gene ids, get the 
 # details from BioMart
-yay
+require(biomaRt)
+listMarts()
+ensembl=useMart("ENSEMBL_MART_ENSEMBL")
+listDatasets(ensembl) %>%
+  filter(str_detect(description, "Human"))
+ensembl = useDataset("hsapiens_gene_ensembl", mart=ensembl)
+listFilters(ensembl) %>%
+  filter(str_detect(name, "ensembl"))
+filterType <- "ensembl_gene_id_version"
+filterValues <- rownames(cts)
+listAttributes(ensembl) %>%
+  head(20)
+attributeNames <- c('ensembl_gene_id_version', 'ensembl_gene_id', 'external_gene_name')
+annot <- getBM(attributes=attributeNames,
+               filters = filterType,
+               values = filterValues,
+               mart = ensembl)
 # remove duplicates, if any
 isDup <- duplicated(annot$ensembl_gene_id)
 dup <- annot$ensembl_gene_id[isDup]
