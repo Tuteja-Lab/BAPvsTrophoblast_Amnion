@@ -1,0 +1,33 @@
+CellType	Log10PValue	Tissue.Specific.Genes	fold.change	Tissue	Genes
+dS3	0.959242252895141	4	6.4788972089857	Stromal cells Cluster 3	PLPP1;RASGRP2;RGCC;DEPTOR
+dS1	0.244866580567961	2	6.73805309734513	Stromal cells Cluster 1	PLPP1;PEMT
+Epi2	0.207507571291617	3	3.41455393446544	Epithelial glandular cells Cluster 2	SLC6A6;DEPTOR;ASRGL1
+Endo..m.	0.0651787080430398	2	2.71695689409078	Endothelial cells (Maternal)	ID1;CD320
+DC2	0.0651787080430398	1	4.81289506953224	Dendritic cells Cluster 2	SAMHD1
+Granulocytes	0.0651787080430398	1	5.61504424778761	Granulocytes	PCLAF
+Epi1	0.0651787080430398	2	3.43778219252303	Epithelial glandular cells Cluster 1	DEPTOR;ASRGL1
+dM2	0	0	0	Decidual macrophages Cluster 2	
+Endo.L	0	1	1.85111348828163	Endothelial cells (L)	
+EVT	0	1	1.4037610619469	Extravillous trophoblast	
+Endo..f.	0	0	0	Endothelial cells (Fetal)	
+dNK.p	0	1	2.55229283990346	Decidual natural killer proliferative	
+fFB1	0	0	0	Fetal Fibroblasts Cluster 1	
+VCT	0	0	0	Villous cytotrophoblast	
+NK.CD16..1	0	0	0	Blood Natural Killer Cells CD16+	
+HB	0	0	0	Hofbauer cells	
+dNK3	0	0	0	Decidual natural killer Cluster 3	
+NK.CD16.	0	0	0	Blood Natural Killer Cells CD16-	
+Plasma	0	0	0	Plasma	
+dNK1	0	0	0	Decidual natural killer Cluster 1	
+SCT	0	0	0	Syncytiotrophoblast	
+dM1	0	0	0	Decidual macrophages Cluster 1	
+dM3	0	0	0	Decidual macrophages Cluster 3	
+dS2	0	1	2.24601769911504	Stromal cells Cluster 2	
+Tcells	0	0	0	T cells	
+MO	0	0	0	Macrophages	
+fFB2	0	1	1.22066179299731	Fetal Fibroblasts Cluster 2	
+DC1	0	0	0	Dendritic cells Cluster 1	
+dP1	0	0	0	Decidua Perivascular cells Cluster 1	
+dP2	0	0	0	Decidua Perivascular cells Cluster 2	
+ILC3	0	0	0	Innate lymphocyte cells 3	
+dNK2	0	0	0	Decidual natural killer Cluster 2	
