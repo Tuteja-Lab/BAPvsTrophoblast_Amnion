@@ -1,1 +1,1 @@
-# amnion.vs.other_RNASeq
+# BAPvsTrophoblast_Amnion
