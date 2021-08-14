@@ -449,3 +449,6 @@ ggplotly(myVolPlot(res.STBvsL40, "H1_BAP_D8_>70_Yabe", "H1_BAP_D8_<40_Yabe", "#A
 ggplotly(myVolPlot(res.BAPvsSTB, "H9_pBAP_D3_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#0571b0" ))
 ```
 
+```{r sessioninfo}
+sessionInfo()
+```

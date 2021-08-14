@@ -24,9 +24,9 @@ knitr::opts_chunk$set(
 )
 ```
 
-# PCA plots
+# snRNAseq analyses
 
-This section uses the counts data generated in Section 1 to perform PCA analyses and plot them. 
+
 
 ## Prerequisites
 
@@ -54,8 +54,10 @@ library(calibrate)
 library(ggrepel)
 library(dittoSeq)
 library(ComplexHeatmap)
+library(RColorBrewer)
+library(pheatmap)
 library(scales)
-library(VennDiagram)
+library(plotly)
 ```
 
 ## Import datasets
@@ -65,11 +67,24 @@ The `counts` data and its associated metadata (`coldata`) are imported for analy
 ```{r dataset, warnings=TRUE, message=FALSE}
 experiment_name = "BAP"
 dataset_loc <- "~/TutejaLab/expression-data"
-ids <- c("5pcO2_r1", "5pcO2_r2", "20pcO2_r1", "20pcO2_r2", "nCT_D5", "nCT_D10", "nTE_D2", "nTE_D3")
-# function d10x.data
-d10x.data <- sapply(ids, function(i){
-  d10x <- Read10X(file.path(dataset_loc,i,"filtered_feature_bc_matrix"))
-  colnames(d10x) <- paste(sapply(strsplit(colnames(d10x),split="-"), '[[' , 1L ), i, sep="-")
+ids <-
+  c(
+    "5pcO2_r1",
+    "5pcO2_r2",
+    "20pcO2_r1",
+    "20pcO2_r2",
+    "nCT_D5",
+    "nCT_D10",
+    "nTE_D2",
+    "nTE_D3"
+  )
+d10x.data <- sapply(ids, function(i) {
+  d10x <-
+    Read10X(file.path(dataset_loc, i, "filtered_feature_bc_matrix"))
+  colnames(d10x) <-
+    paste(sapply(strsplit(colnames(d10x), split = "-"), '[[' , 1L), 
+          i,
+          sep ="-")
   d10x
 })
 experiment.data <- do.call("cbind", d10x.data)
@@ -79,108 +94,127 @@ bapd8.combined <- CreateSeuratObject(
   min.cells = 10,
   min.genes = 200,
   names.field = 2,
-  names.delim = "\\-")
+  names.delim = "\\-"
+)
 ```
 
 
 ```{r metadataStats, warnings=TRUE, message=FALSE}
-# add the replicate information in the metadata table
-# backup
 bapd8.temp <- bapd8.combined
-# metadata stats
-bapd8.combined$log10GenesPerUMI <- log10(bapd8.combined$nFeature_RNA) / log10(bapd8.combined$nCount_RNA)
-bapd8.combined$mitoRatio <- PercentageFeatureSet(object = bapd8.combined, pattern = "^MT-")
+bapd8.combined$log10GenesPerUMI <-
+  log10(bapd8.combined$nFeature_RNA) / log10(bapd8.combined$nCount_RNA)
+bapd8.combined$mitoRatio <-
+  PercentageFeatureSet(object = bapd8.combined, pattern = "^MT-")
 bapd8.combined$mitoRatio <- bapd8.combined@meta.data$mitoRatio / 100
 metadata <- bapd8.combined@meta.data
 metadata$cells <- rownames(metadata)
 metadata <- metadata %>%
-  dplyr::rename(seq_folder = orig.ident,
-                nUMI = nCount_RNA,
-                nGene = nFeature_RNA, 
-                seq_folder = orig.ident)
+  dplyr::rename(
+    seq_folder = orig.ident,
+    nUMI = nCount_RNA,
+    nGene = nFeature_RNA,
+    seq_folder = orig.ident
+  )
 ```
 
 
-```{r dataset, warnings=TRUE, message=FALSE}
-mt <- ggplot(dat = metadata, aes(x=nUMI, y=nGene, color=mitoRatio)) + 
-  geom_point(alpha = 0.5) + 
-  scale_colour_gradient(low = "gray90", high = "black") + labs(colour="MT ratio") +
+```{r mtplot, fig.cap="FigX: fig legend", fig.width=10, fig.height=12}
+mt <-
+  ggplot(dat = metadata, aes(x = nUMI, y = nGene, color = mitoRatio)) +
+  geom_point(alpha = 0.5) +
+  scale_colour_gradient(low = "gray90", high = "black") + labs(colour =
+                                                                 "MT ratio") +
   theme_bw(base_size = 12) +
   theme(
     panel.grid.major = element_blank(),
     panel.grid.minor = element_blank(),
     strip.background = element_blank(),
-    panel.border = element_rect(colour = "black")) + 
+    panel.border = element_rect(colour = "black")
+  ) +
   xlab("RNA counts") + ylab("Gene counts") +
-  stat_smooth(method=lm) +
-  facet_wrap(~seq_folder, labeller = labeller(seq_folder = 
-                                                c("20pcO2_r1" = "20% Oxygen (rep1)",
-                                                  "20pcO2_r2" = "20% Oxygen (rep2)",
-                                                  "5pcO2_r1" = "5% Oxygen (rep1)",
-                                                  "5pcO2_r2" = "5% Oxygen (rep2)",
-                                                  "nCT_D5" = "nCT day 5",
-                                                  "nCT_D10" = "nCT day 10",
-                                                  "nTE_D2" = "nTE day 2",
-                                                  "nTE_D3" = "nTE day 3"))) +
-  scale_y_continuous(label=comma) +
-  scale_x_continuous(label=comma) 
+  stat_smooth(method = lm) +
+  facet_wrap( ~ seq_folder, labeller = labeller(
+    seq_folder =
+      c(
+        "20pcO2_r1" = "20% Oxygen (rep1)",
+        "20pcO2_r2" = "20% Oxygen (rep2)",
+        "5pcO2_r1" = "5% Oxygen (rep1)",
+        "5pcO2_r2" = "5% Oxygen (rep2)",
+        "nCT_D5" = "nCT day 5",
+        "nCT_D10" = "nCT day 10",
+        "nTE_D2" = "nTE day 2",
+        "nTE_D3" = "nTE day 3"
+      )
+  )) +
+  scale_y_continuous(label = comma) +
+  scale_x_continuous(label = comma)
+mt
 ```
 
-```{r otherQC1, warnings=TRUE, message=FALSE}
-# other qc plots
-# number of cells per sample
-ncells <- ggplot(metadata, aes(x=seq_folder, fill=seq_folder)) + 
+```{r otherQC1, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+ncells <- ggplot(metadata, aes(x = seq_folder, fill = seq_folder)) +
   geom_bar() +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  )) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
   ggtitle("Number of Cells")
-ggsave("Figure_Sx_number-of-cells-per-sample.png", plot = ncells, dpi=900, width = 5, height = 6)
+ncells
 ```
+
 
 # density of cells per sample
 
-```{r otherQC2, warnings=TRUE, message=FALSE}
-dcells <- ggplot(metadata, aes(color=seq_folder, x=nUMI, fill= seq_folder)) + 
-  geom_density(alpha = 0.2) + 
-  scale_x_log10() + 
+```{r otherQC2, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+dcells <-
+  ggplot(metadata, aes(color = seq_folder, x = nUMI, fill = seq_folder)) +
+  geom_density(alpha = 0.2) +
+  scale_x_log10() +
   theme_classic() +
   ylab("Cell density") +
   geom_vline(xintercept = 500)
-ggsave("Figure_Sx_density-of-cells-per-sample.png", plot = dcells, dpi=900, width = 5, height = 6)
+dcells
 ```
-```{r otherQC3, warnings=TRUE, message=FALSE}
-# nubmer of cells vs. genes
-ngenes <- ggplot(metadata, aes(x=seq_folder, y=log10(nGene), fill=seq_folder)) + 
-  geom_boxplot() + 
+```{r otherQC3, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+ngenes <-
+  ggplot(metadata, aes(x = seq_folder, y = log10(nGene), fill = seq_folder)) +
+  geom_boxplot() +
   theme_classic() +
-  theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1)) +
-  theme(plot.title = element_text(hjust=0.5, face="bold")) +
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  )) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
   ggtitle("NCells vs NGenes")
-ggsave("Figure_Sx_genes-vs-cells-per-sample.png", plot = dcells, dpi=900, width = 5, height = 6)
+ngenes
 ```
-```{r otherQC4, warnings=TRUE, message=FALSE}
+```{r otherQC4, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
 # transcritps
-dtranscripts <- ggplot(metadata, aes(x=log10GenesPerUMI, color = seq_folder, fill=seq_folder)) +
+dtranscripts <-
+  ggplot(metadata,
+         aes(x = log10GenesPerUMI, color = seq_folder, fill = seq_folder)) +
   geom_density(alpha = 0.2) +
   theme_classic() +
   geom_vline(xintercept = 0.8)
-ggsave("Figure_Sx_transcripts-density-per-sample.png", plot = dtranscripts, dpi=900, width = 5, height = 6)
+dtranscripts
 # mito ratio
 ```
-```{r otherQC5, warnings=TRUE, message=FALSE}
-mtratio <- ggplot(metadata, aes(color=seq_folder, x=mitoRatio, fill=seq_folder)) + 
-  geom_density(alpha = 0.2) + 
-  scale_x_log10() + 
+```{r otherQC5, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+mtratio <-
+  ggplot(metadata, aes(color = seq_folder, x = mitoRatio, fill = seq_folder)) +
+  geom_density(alpha = 0.2) +
+  scale_x_log10() +
   theme_classic() +
   geom_vline(xintercept = 0.2)
-ggsave("Figure_Sx_mt-ratio-per-sample.png", plot = mtratio, dpi=900, width = 5, height = 6)
+mtratio
 ```
 
 ```{r metadata2, warnings=TRUE, message=FALSE}
-# restore backup
 bapd8.combined <- bapd8.temp
-# restore backup, resume analyses
 df <- bapd8.combined@meta.data
 df$replicate <- NA
 df$replicate[which(str_detect(df$orig.ident, "5pcO2"))] <- "5pcO2"
@@ -188,424 +222,841 @@ df$replicate[which(str_detect(df$orig.ident, "20pcO2"))] <- "20pcO2"
 df$replicate[which(str_detect(df$orig.ident, "nCT_"))] <- "nCT"
 df$replicate[which(str_detect(df$orig.ident, "nTE_"))] <- "nTE"
 bapd8.combined@meta.data <- df
-bapd8.combined[["percent.mt"]] <- PercentageFeatureSet(bapd8.combined, pattern = "^MT-")
+bapd8.combined[["percent.mt"]] <-
+  PercentageFeatureSet(bapd8.combined, pattern = "^MT-")
 ```
 
 
-```{r scRNAseqMetrics1, warnings=TRUE, message=FALSE}
-# Figure S2: A, B and C
-p <- VlnPlot(bapd8.combined, features = "nFeature_RNA", pt.size = 1) + 
-  geom_hline(yintercept=200, color = "red", size=1) +
-  geom_hline(yintercept=10000, color = "red", size=1) +
+```{r scRNAseqMetrics1, fig.cap="FigX: fig legend", fig.width=10, fig.height=5}
+p <-
+  VlnPlot(bapd8.combined, features = "nFeature_RNA", pt.size = 1) +
+  geom_hline(yintercept = 200,
+             color = "red",
+             size = 1) +
+  geom_hline(yintercept = 10000,
+             color = "red",
+             size = 1) +
   theme(legend.position = "none")
-
 q <- VlnPlot(bapd8.combined, features = "nCount_RNA", pt.size = 1) +
   theme(legend.position = "none")
-
 r <- VlnPlot(bapd8.combined, features = "percent.mt", pt.size = 1) +
-  geom_hline(yintercept=15, color = "red", size=1) +
+  geom_hline(yintercept = 15,
+             color = "red",
+             size = 1) +
   theme(legend.position = "none")
-h =(p | q | r)
+panel_plot <-
+  plot_grid(p,
+            q,
+            r,
+            labels = c("A", "B", "C"),
+            ncol = 3,
+            nrow = 1)
+panel_plot
 ```
-```{r scRNAseqMetrics2, warnings=TRUE, message=FALSE}
-B1 <- FeatureScatter(bapd8.combined, feature1 = "nCount_RNA", feature2 = "percent.mt")
-B2 <- FeatureScatter(bapd8.combined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-bapd8.combined <- subset(bapd8.combined, subset = nFeature_RNA > 200 & nFeature_RNA < 10000 & percent.mt < 25)
-I1 <- FeatureScatter(bapd8.combined, feature1 = "nCount_RNA", feature2 = "percent.mt")
-I2 <- FeatureScatter(bapd8.combined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
-bapd8.combined <- subset(bapd8.combined, subset = nFeature_RNA > 200 & nFeature_RNA < 10000 & percent.mt < 15)
-A1 <- FeatureScatter(bapd8.combined, feature1 = "nCount_RNA", feature2 = "percent.mt")
-A2 <- FeatureScatter(bapd8.combined, feature1 = "nCount_RNA", feature2 = "nFeature_RNA")
+```{r scRNAseqMetrics2, fig.cap="FigX: fig legend", fig.width=10, fig.height=12}
+B1 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA", 
+                 feature2 = "percent.mt")
+B2 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA", 
+                 feature2 = "nFeature_RNA")
+bapd8.combined <-
+  subset(bapd8.combined,
+         subset = nFeature_RNA > 200 &
+           nFeature_RNA < 10000 & percent.mt < 25)
+I1 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "percent.mt")
+I2 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "nFeature_RNA")
+bapd8.combined <-
+  subset(bapd8.combined,
+         subset = nFeature_RNA > 200 &
+           nFeature_RNA < 10000 & percent.mt < 15)
+A1 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "percent.mt")
+A2 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "nFeature_RNA")
 B <- B1 | B2
 I <- I1 | I2
 A <- A1 | A2
+panel_plot <-
+  plot_grid(
+    B1,
+    B2,
+    I1,
+    I2,
+    A1,
+    A2,
+    labels = c("A", "B", "C", "D", "E", "F"),
+    ncol = 2,
+    nrow = 3
+  )
+panel_plot
+
 ```
 
 ```{r cleanData, warnings=TRUE, message=FALSE}
 counts <- GetAssayData(object = bapd8.combined, slot = "counts")
-counts <- counts[grep(pattern = "^MT", x = rownames(counts), invert = TRUE),]
-counts <- counts[grep(pattern = "^MT", x = rownames(counts), invert = TRUE),]
-counts <- counts[grep(pattern = "^RPL", x = rownames(counts), invert = TRUE),]
-counts <- counts[grep(pattern = "^RPS", x = rownames(counts), invert = TRUE),]
-counts <- counts[grep(pattern = "^MRPS", x = rownames(counts), invert = TRUE),]
-counts <- counts[grep(pattern = "^MRPL", x = rownames(counts), invert = TRUE),]
+counts <-
+  counts[grep(pattern = "^MT",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^MT",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^RPL",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^RPS",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^MRPS",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^MRPL",
+              x = rownames(counts),
+              invert = TRUE), ]
 keep_genes <- Matrix::rowSums(counts) >= 10
-filtered_counts <- counts[keep_genes, ]
-bapd8.fcombined <- CreateSeuratObject(filtered_counts, meta.data = bapd8.combined@meta.data)
+filtered_counts <- counts[keep_genes,]
+bapd8.fcombined <-
+  CreateSeuratObject(filtered_counts, meta.data = bapd8.combined@meta.data)
 bapd8.fcombined@meta.data <- bapd8.fcombined@meta.data[1:4]
 bapd8.combined <- bapd8.fcombined
 ```
 
 ```{r seurat, warnings=TRUE, message=FALSE}
 bapd8.list <- SplitObject(bapd8.combined, split.by = "orig.ident")
-bapd8.list <- lapply(X = bapd8.list, FUN = function(x) {
-  x <- NormalizeData(x)
-  x <- FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
-})
-bapd8.anchors <- FindIntegrationAnchors(object.list = bapd8.list, dims = 1:20)
-bapd8.integrated <- IntegrateData(anchorset = bapd8.anchors, dims = 1:20)
+bapd8.list <- lapply(
+  X = bapd8.list,
+  FUN = function(x) {
+    x <- NormalizeData(x)
+    x <-
+      FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+  }
+)
+bapd8.anchors <-
+  FindIntegrationAnchors(object.list = bapd8.list, dims = 1:20)
+bapd8.integrated <-
+  IntegrateData(anchorset = bapd8.anchors, dims = 1:20)
 DefaultAssay(bapd8.integrated) <- "integrated"
 bapd8.integrated <- ScaleData(bapd8.integrated, verbose = FALSE)
-bapd8.integrated <- RunPCA(bapd8.integrated, npcs = 30, verbose = FALSE)
-bapd8.integrated <- RunUMAP(bapd8.integrated, reduction = "pca", dims = 1:20)
-bapd8.integrated <- FindNeighbors(bapd8.integrated, reduction = "pca", dims = 1:20)
+bapd8.integrated <-
+  RunPCA(bapd8.integrated, npcs = 30, verbose = FALSE)
+bapd8.integrated <-
+  RunUMAP(bapd8.integrated, reduction = "pca", dims = 1:20)
+bapd8.integrated <-
+  FindNeighbors(bapd8.integrated, reduction = "pca", dims = 1:20)
 bapd8.integrated <- FindClusters(bapd8.integrated, resolution = 0.5)
 num.clusters <- nlevels(bapd8.integrated$seurat_clusters)
 num.clusters
 ```
+```{r optimization1, fig.cap="FigX: fig legend", fig.width=8, fig.height=12}
+VizDimLoadings(bapd8.integrated, dims = 1:4, reduction = "pca")
+```
+
+```{r optimization2, fig.cap="FigX: fig legend", fig.width=8, fig.height=6}
+bapd8.integrated <- JackStraw(bapd8.integrated, num.replicate = 100)
+bapd8.integrated <- ScoreJackStraw(bapd8.integrated, dims = 1:20)
+elbow <- ElbowPlot(bapd8.integrated)
+jack <- JackStrawPlot(bapd8.integrated, dims = 1:20)
+panel_plot <- plot_grid(elbow, jack, labels = c('A', 'B'), ncol = 2)
+panel_plot
+```
 
 
+```{r renumber, warnings=TRUE, message=FALSE}
 df <- bapd8.integrated@meta.data
 df$new_clusters <- as.factor(as.numeric(df$seurat_clusters))
 bapd8.integrated@meta.data <- df
 Idents(bapd8.integrated) <- "new_clusters"
+```
 
-# Figure 2: A, B and C
-A = enhancedDimPlot(object = bapd8.integrated,
-                    grouping_var = 'ident',
-                    reduction = "umap",
-                    label = TRUE,
-                    pt.size = 1,
-                    alpha = 0.5) +
+
+
+```{r clusterplots, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+A = enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'ident',
+  reduction = "umap",
+  label = TRUE,
+  pt.size = 1,
+  alpha = 0.5
+) +
   ggtitle("A") +
   xlab("UMAP_1") +
   ylab("UMAP_2") +
-  theme_classic() + 
-  theme(legend.position = "none", 
+  theme_classic() +
+  theme(legend.position = "none",
         plot.title = element_text(face = "bold"))
 
-B <- enhancedDimPlot(object = bapd8.integrated,
-                     grouping_var = 'replicate',
-                     reduction = "umap",
-                     label = FALSE,
-                     pt.size = 1,
-                     alpha = 0.4) +
+B <- enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'replicate',
+  reduction = "umap",
+  label = FALSE,
+  pt.size = 1,
+  alpha = 0.4
+) +
   ggtitle("B") +
   xlab("UMAP_1") +
   ylab("UMAP_2") +
-  theme_classic() + 
-  theme(legend.justification = c(1, 1),
-        legend.position = c(1, 1),
-        plot.title = element_text(face = "bold")) +
-  scale_colour_manual(name = "Conditions", 
-                      labels = c(expression(paste('20% ', 'O'[2])),
-                                 expression(paste('5% ', 'O'[2])),
-                                 'nCT',
-                                 'nTE'), 
-                      values = c("20pcO2" = "#0571b0",
-                                 "5pcO2" = "#ca0020",
-                                 "nCT" = "#e333ff",
-                                 "nTE" = "#3fff33" )) +
-  scale_fill_manual(name = "Conditions", 
-                    labels = c(expression(paste('20% ', 'O'[2])),
-                               expression(paste('5% ', 'O'[2])),
-                               'nCT',
-                               'nTE'), 
-                    values = c("20pcO2" = "#0571b0",
-                               "5pcO2" = "#ca0020",
-                               "nCT" = "#e333ff",
-                               "nTE" = "#3fff33" )) +
+  theme_classic() +
+  theme(
+    legend.justification = c(1, 1),
+    legend.position = c(1, 1),
+    plot.title = element_text(face = "bold")
+  ) +
+  scale_colour_manual(
+    name = "Conditions",
+    labels = c(expression(paste('20% ', 'O'[2])),
+               expression(paste('5% ', 'O'[2])),
+               'nCT',
+               'nTE'),
+    values = c(
+      "20pcO2" = "#DA3C96",
+      "5pcO2" = "#A90065",
+      "nCT" = "#FFD74D",
+      "nTE" = "#9BC13C"
+    )
+  ) +
+  scale_fill_manual(
+    name = "Conditions",
+    labels = c(expression(paste('20% ', 'O'[2])),
+               expression(paste('5% ', 'O'[2])),
+               'nCT',
+               'nTE'),
+    values = c(
+      "20pcO2" = "#DA3C96",
+      "5pcO2" = "#A90065",
+      "nCT" = "#FFD74D",
+      "nTE" = "#9BC13C"
+    )
+  ) +
   scale_linetype_manual(values = "blank")
 
-C <- enhancedDimPlot(object = bapd8.integrated,
-                     grouping_var = 'orig.ident',
-                     reduction = "umap",
-                     label = FALSE,
-                     pt.size = 1,
-                     alpha = 0.4) +
+C <- enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'orig.ident',
+  reduction = "umap",
+  label = FALSE,
+  pt.size = 1,
+  alpha = 0.4
+) +
   ggtitle("C") +
   xlab("UMAP_1") +
   ylab("UMAP_2") +
-  theme_classic() + 
-  theme(legend.justification = c(1, 1),
-        legend.position = c(1, 1),
-        plot.title = element_text(face = "bold")) +
-  scale_colour_manual(name = "Replicates", 
-                      labels = c(expression(paste('20% ', 'O'[2], ' rep1')),
-                                 expression(paste('20% ', 'O'[2], ' rep2')),
-                                 expression(paste('5% ', 'O'[2], ' rep1')),
-                                 expression(paste('5% ', 'O'[2], ' rep1')),
-                                 "nCT day 5",
-                                 "nCT day 10",
-                                 "nTE day 3",
-                                 "nTE day 5"), 
-                      values = c("20pcO2_r1" = "#0571b0",
-                                 "20pcO2_r2" = "#92c5de",
-                                 "5pcO2_r1" = "#ca0020",
-                                 "5pcO2_r2" = "#f4a582",
-                                 "nCT_D5" = "#d133ff",
-                                 "nCT_D10" = "#ff33f6",
-                                 "nTE_D2" = "#33ffa2",
-                                 "nTE_D3" = "#5bff33")) +
-  scale_fill_manual(name = "Replicates", 
-                    labels = c(expression(paste('20% ', 'O'[2], ' rep1')),
-                               expression(paste('20% ', 'O'[2], ' rep2')),
-                               expression(paste('5% ', 'O'[2], ' rep1')),
-                               expression(paste('5% ', 'O'[2], ' rep1')),
-                               "nCT day 5",
-                               "nCT day 10",
-                               "nTE day 3",
-                               "nTE day 5"), 
-                    values = c("20pcO2_r1" = "#0571b0",
-                               "20pcO2_r2" = "#92c5de",
-                               "5pcO2_r1" = "#ca0020",
-                               "5pcO2_r2" = "#f4a582",
-                               "nCT_D5" = "#d133ff",
-                               "nCT_D10" = "#ff33f6",
-                               "nTE_D2" = "#33ffa2",
-                               "nTE_D3" = "#5bff33")) +
+  theme_classic() +
+  theme(
+    legend.justification = c(1, 1),
+    legend.position = c(1, 1),
+    plot.title = element_text(face = "bold")
+  ) +
+  scale_colour_manual(
+    name = "Replicates",
+    labels = c(
+      expression(paste('20% ', 'O'[2], ' rep1')),
+      expression(paste('20% ', 'O'[2], ' rep2')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      "nCT day 5",
+      "nCT day 10",
+      "nTE day 3",
+      "nTE day 5"
+    ),
+    values = c(
+      "20pcO2_r1" = "#0571b0",
+      "20pcO2_r2" = "#92c5de",
+      "5pcO2_r1" = "#ca0020",
+      "5pcO2_r2" = "#f4a582",
+      "nCT_D5" = "#d133ff",
+      "nCT_D10" = "#ff33f6",
+      "nTE_D2" = "#33ffa2",
+      "nTE_D3" = "#5bff33"
+    )
+  ) +
+  scale_fill_manual(
+    name = "Replicates",
+    labels = c(
+      expression(paste('20% ', 'O'[2], ' rep1')),
+      expression(paste('20% ', 'O'[2], ' rep2')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      "nCT day 5",
+      "nCT day 10",
+      "nTE day 3",
+      "nTE day 5"
+    ),
+    values = c(
+      "20pcO2_r1" = "#0571b0",
+      "20pcO2_r2" = "#92c5de",
+      "5pcO2_r1" = "#ca0020",
+      "5pcO2_r2" = "#f4a582",
+      "nCT_D5" = "#d133ff",
+      "nCT_D10" = "#ff33f6",
+      "nTE_D2" = "#33ffa2",
+      "nTE_D3" = "#5bff33"
+    )
+  ) +
   scale_linetype_manual(values = "blank")
+panel_plot <- plot_grid(A, B, ncol = 2, nrow = 1)
+panel_plot
+```
+```{r clusterplotsreplicate, fig.cap="FigX: fig legend", fig.width=8, fig.height=6}
+DimPlot(object = bapd8.integrated,
+        split.by = 'orig.ident',
+        ncol = 4) +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
 
-ggsave("Figure_2_A.png", plot = A, dpi=900, width = 5, height = 5)
-ggsave("Figure_2_B.png", plot = B, dpi=900, width = 5, height = 5)
-ggsave("Figure_2_C.png", plot = C, dpi=900, width = 5, height = 5)
-ABC = (A | B | C)
-ggsave("Figure_2_ABC.png", plot = ABC, dpi=900, width = 16, height = 6)
+```{r clusterplotsInteractive, fig.cap="FigX: fig legend", fig.width=6, fig.height=5}
+A = enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'ident',
+  reduction = "umap",
+  label = FALSE,
+  pt.size = 1,
+  alpha = 0.5
+) +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(legend.position = "none")
+ggplotly(A)
+```
 
 
-#multi_dittoPlot(cluster2356, vars = figs7, group.by = "new_clusters", split.by = "replicate",
-#                vlnplot.lineweight = 0.2, jitter.size = 0.3, ncol = 1)
-
-# finding conserved markers
+```{r markers, warnings=TRUE, message=FALSE}
 DefaultAssay(bapd8.integrated) <- "RNA"
-#for (i in 0:num.clusters){
-#  try({
-#    cluster.markers.all <- FindMarkers(bapd8.integrated, ident.1 = i)
-#    cluster.markers.all$avg_FC <- exp(cluster.markers.all$avg_logFC)
-#    cluster.markers <- cluster.markers.all %>% filter(exp.avg_FC >= 1.5) %>% filter(p_val_adj <= 0.05)
-#    cluster=paste0("cluster", i, "names")
-#    cluster <- rownames(cluster.markers)
-#    write.csv(cluster.markers.pooled, file=paste0("markers.pooled.cluster_",i,".csv"))
-#    write.csv(cluster.markers.pooled.roc, file=paste0("markers.pooled.roc.cluster_",i,".csv"))
-#  })
-#}
-Idents(bapd8.integrated) <- "new_clusters"
-markers.all.1 <- FindMarkers(bapd8.integrated, ident.1 = 1)
-markers.all.2 <- FindMarkers(bapd8.integrated, ident.1 = 2)
-markers.all.3 <- FindMarkers(bapd8.integrated, ident.1 = 3)
-markers.all.4 <- FindMarkers(bapd8.integrated, ident.1 = 4)
-markers.all.5 <- FindMarkers(bapd8.integrated, ident.1 = 5)
-markers.all.6 <- FindMarkers(bapd8.integrated, ident.1 = 6)
-markers.all.7 <- FindMarkers(bapd8.integrated, ident.1 = 7)
-markers.all.8 <- FindMarkers(bapd8.integrated, ident.1 = 8)
-markers.all.9 <- FindMarkers(bapd8.integrated, ident.1 = 9)
-markers.all.10 <- FindMarkers(bapd8.integrated, ident.1 = 10)
-markers.all.11 <- FindMarkers(bapd8.integrated, ident.1 = 11)
-markers.all.12 <- FindMarkers(bapd8.integrated, ident.1 = 12)
-markers.all.13 <- FindMarkers(bapd8.integrated, ident.1 = 13)
+for (i in 1:num.clusters) {
+  try({
+    cluster.markers.all <- FindMarkers(bapd8.integrated, ident.1 = i)
+    cluster.markers.filtered <-
+      cluster.markers.all %>% 
+      filter(avg_log2FC >= 0.584962501) %>%
+      filter(p_val_adj <= 0.05) %>%
+      arrange(desc(avg_log2FC))
+    markers.filtered.names <- rownames(cluster.markers.filtered)
+    assign(paste("cluster.marker.names", i, sep = "."),
+           markers.filtered.names)
+  })
+}
+```
 
-markers.filtered.1 <- markers.all.1 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.2 <- markers.all.2 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.3 <- markers.all.3 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.4 <- markers.all.4 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.5 <- markers.all.5 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.6 <- markers.all.6 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.7 <- markers.all.7 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.8 <- markers.all.8 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.9 <- markers.all.9 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.10 <- markers.all.10 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.11 <- markers.all.11 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.12 <- markers.all.12 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-markers.filtered.13 <- markers.all.13 %>% filter(avg_log2FC >= 0.584962501) %>% filter(p_val_adj <= 0.05) %>% arrange(desc(avg_log2FC))
-
-
-
-markers.filtered.names.1 <- rownames(markers.filtered.1)
-markers.filtered.names.2 <- rownames(markers.filtered.2)
-markers.filtered.names.3 <- rownames(markers.filtered.3)
-markers.filtered.names.4 <- rownames(markers.filtered.4)
-markers.filtered.names.5 <- rownames(markers.filtered.5)
-markers.filtered.names.6 <- rownames(markers.filtered.6)
-markers.filtered.names.7 <- rownames(markers.filtered.7)
-markers.filtered.names.8 <- rownames(markers.filtered.8)
-markers.filtered.names.9 <- rownames(markers.filtered.9)
-markers.filtered.names.10 <- rownames(markers.filtered.10)
-markers.filtered.names.11 <- rownames(markers.filtered.11)
-markers.filtered.names.12 <- rownames(markers.filtered.12)
-markers.filtered.names.13 <- rownames(markers.filtered.13)
-
-
-
-length(markers.filtered.names.1)
-length(markers.filtered.names.2)
-length(markers.filtered.names.3)
-length(markers.filtered.names.4)
-length(markers.filtered.names.5)
-length(markers.filtered.names.6)
-length(markers.filtered.names.7)
-length(markers.filtered.names.8)
-length(markers.filtered.names.9)
-length(markers.filtered.names.10)
-length(markers.filtered.names.11)
-length(markers.filtered.names.12)
-length(markers.filtered.names.13)
-
-# pie chart for # of cells
-piedata <- tibble(
+```{r barplotData, warnings=TRUE, message=FALSE}
+fullCounts <- tibble(
   cluster = bapd8.integrated@meta.data$new_clusters,
   cell_type = bapd8.integrated@meta.data$orig.ident
 ) %>%
-  dplyr::group_by(cluster,cell_type) %>%
+  dplyr::group_by(cluster, cell_type) %>%
   dplyr::count() %>%
   dplyr::group_by(cluster) %>%
-  dplyr::mutate(
-    percent=(100*n)/sum(n)
-  ) %>%
   dplyr::ungroup() %>%
-  dplyr::mutate(
-    cluster=paste("Cluster",cluster)) 
+  dplyr::mutate(cluster = paste0("Cluster_", cluster))
+fullCounts <- fullCounts %>%
+  group_by(cell_type) %>%
+  mutate(cell_type_sum = sum(n)) %>%
+  mutate(percent = (n * 100) / cell_type_sum)
+list2env(split(fullCounts, fullCounts$cluster), envir = .GlobalEnv)
+```
 
-pie.clust1 <- subset(piedata, cluster %in% "Cluster 1")
-pie.clust2 <- subset(piedata, cluster %in% "Cluster 2")
-pie.clust3 <- subset(piedata, cluster %in% "Cluster 3")
-pie.clust4 <- subset(piedata, cluster %in% "Cluster 4")
-pie.clust5 <- subset(piedata, cluster %in% "Cluster 5")
-pie.clust6 <- subset(piedata, cluster %in% "Cluster 6")
-pie.clust7 <- subset(piedata, cluster %in% "Cluster 7")
-pie.clust8 <- subset(piedata, cluster %in% "Cluster 8")
-pie.clust9 <- subset(piedata, cluster %in% "Cluster 9")
-pie.clust10 <- subset(piedata, cluster %in% "Cluster 10")
-pie.clust11 <- subset(piedata, cluster %in% "Cluster 11")
-pie.clust12 <- subset(piedata, cluster %in% "Cluster 12")
-pie.clust13 <- subset(piedata, cluster %in% "Cluster 13")
-
-pie.clust1  <- pie.clust1  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust2  <- pie.clust2  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust3  <- pie.clust3  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust4  <- pie.clust4  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust5  <- pie.clust5  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust6  <- pie.clust6  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust7  <- pie.clust7  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust8  <- pie.clust8  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust9  <- pie.clust9  %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust10 <- pie.clust10 %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust11 <- pie.clust11 %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust12 <- pie.clust12 %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-pie.clust13 <- pie.clust13 %>% arrange(desc(cluster)) %>% mutate(lab.ypos = cumsum(percent) - 0.5*percent)
-
+```{r barplotFunc, warnings=TRUE, message=FALSE}
 mybarplot <- function(pdata, i) {
-  ggplot(data=pdata, aes(x=cell_type, y=n, fill=as.factor(cell_type))) +
-    geom_bar(stat="identity") +
-    theme_classic() +
-    theme(legend.position="none",
-          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1),
-          plot.title = element_text(hjust=0.5, face="bold")) +
-    ggtitle(paste("Cluster", i)) + ylab("number of nuclei") + xlab("experiment")
-  ggsave(paste("nuclei-clus", i, ".png", sep = "" ), dpi=900, width = 6, height = 4)
+  ggplot(data = pdata,
+         aes(
+           x = cell_type,
+           y = percent,
+           fill = cell_type,
+           alpha = 0.5
+         )) +
+    geom_bar(stat = "identity") +
+    theme_classic(base_size = 12) +
+    theme(legend.position = "none",
+          axis.text.x = element_text(
+            angle = 45,
+            vjust = 1,
+            hjust = 1
+          )) +
+    ggtitle(paste("Cluster", i, "cell composition")) +
+    ylab("% cells in cluster") +
+    xlab("") +
+    scale_colour_manual(
+      name = "Replicates",
+      labels = c(
+        expression(paste('20% ', 'O'[2], ' rep1')),
+        expression(paste('20% ', 'O'[2], ' rep2')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        "nCT day 5",
+        "nCT day 10",
+        "nTE day 3",
+        "nTE day 5"
+      ),
+      values = c(
+        "20pcO2_r1" = "#DA3C96",
+        "20pcO2_r2" = "#DA3C96",
+        "5pcO2_r1" = "#A90065",
+        "5pcO2_r2" = "#A90065",
+        "nCT_D5" = "#FFD74D",
+        "nCT_D10" = "#FFD74D",
+        "nTE_D2" = "#9BC13C",
+        "nTE_D3" = "#9BC13C"
+      )
+    ) +
+    scale_fill_manual(
+      name = "Replicates",
+      labels = c(
+        expression(paste('20% ', 'O'[2], ' rep1')),
+        expression(paste('20% ', 'O'[2], ' rep2')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        "nCT day 5",
+        "nCT day 10",
+        "nTE day 3",
+        "nTE day 5"
+      ),
+      values = c(
+        "20pcO2_r1" = "#DA3C96",
+        "20pcO2_r2" = "#DA3C96",
+        "5pcO2_r1" = "#A90065",
+        "5pcO2_r2" = "#A90065",
+        "nCT_D5" = "#FFD74D",
+        "nCT_D10" = "#FFD74D",
+        "nTE_D2" = "#9BC13C",
+        "nTE_D3" = "#9BC13C"
+      )
+    ) +
+    scale_linetype_manual(values = "blank")
 }
-mybarplot(pie.clust1, 1)
-mybarplot(pie.clust2, 2)
-mybarplot(pie.clust3, 3)
-mybarplot(pie.clust4, 4)
-mybarplot(pie.clust5, 5)
-mybarplot(pie.clust6, 6)
-mybarplot(pie.clust7, 7)
-mybarplot(pie.clust8, 8)
-mybarplot(pie.clust9, 9)
-mybarplot(pie.clust10, 10)
-mybarplot(pie.clust11, 11)
-mybarplot(pie.clust12, 12)
-mybarplot(pie.clust13, 13)
+``` 
 
 
-
-# experiments
-topmarkers <- function(number) {
-  top.num.markers <- c(head(markers.filtered.names.1, number), head(markers.filtered.names.2, number), 
-                       head(markers.filtered.names.3, number), head(markers.filtered.names.4, number), 
-                       head(markers.filtered.names.5, number), head(markers.filtered.names.6, number), 
-                       head(markers.filtered.names.7, number), head(markers.filtered.names.8, number), 
-                       head(markers.filtered.names.9, number), head(markers.filtered.names.10, number),
-                       head(markers.filtered.names.11, number), head(markers.filtered.names.12, number),
-                       head(markers.filtered.names.13, number))
-  return(top.num.markers)
-}
-genes <- topmarkers(5)
-h = dittoHeatmap(bapd8.integrated, genes, annot.by = c("new_clusters", "replicate"))
-ggsave("heatmap.svg", plot = h, dpi=900, width = 10, height = 10)
-
+```{r colorAssign, warnings=TRUE, message=FALSE}
 # colors for each clusters defined
-ggplotColours <- function(n = 6, h = c(0, 360) + 15){
-  if ((diff(h) %% 360) < 1) h[2] <- h[2] - 360/n
+ggplotColours <- function(n = 6, h = c(0, 360) + 15) {
+  if ((diff(h) %% 360) < 1)
+    h[2] <- h[2] - 360 / n
   hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
 }
-color_list <- ggplotColours(n=13)
+color_list <- ggplotColours(n = 13)
+```
 
-grouped_violinPlots <- function(markersfile, clusternumber, seuratobject = bapd8.integrated) {
-  dittoPlotVarsAcrossGroups(seuratobject, markersfile, 
-                            group.by = "new_clusters", main = paste("Cluster ", clusternumber, " markers"), 
-                            xlab = "Clusters", 
-                            ylab = "Mean z-score expression", 
-                            x.labels = c("Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4",
-                                         "Cluster 5", "Cluster 6", "Cluster 7", "Cluster 8",
-                                         "Cluster 9", "Cluster 10", "Cluster 11", "Cluster 12",
-                                         "Cluster 13"), 
-                            vlnplot.lineweight = 0.5, 
-                            legend.show = FALSE, 
-                            jitter.size = 0.5, 
-                            color.panel = color_list)
-  #ggsave(paste("cluster-markers_", clusternumber, ".svg"), dpi=900, width = 6, height = 5)
-  ggsave(paste("cluster-markers_", clusternumber, ".png", sep = ""), dpi=900, width = 6, height = 5)
-}
+```{r gVioFunction, warnings=TRUE, message=FALSE}
+grouped_violinPlots <-
+  function(markersfile,
+           clusternumber,
+           seuratobject = bapd8.integrated) {
+    dittoPlotVarsAcrossGroups(
+      seuratobject,
+      markersfile,
+      group.by = "new_clusters",
+      main = paste("Cluster ", clusternumber, " markers expression"),
+      xlab = "",
+      ylab = "Mean z-score expression",
+      x.labels = c(
+        "Cluster 1",
+        "Cluster 2",
+        "Cluster 3",
+        "Cluster 4",
+        "Cluster 5",
+        "Cluster 6",
+        "Cluster 7",
+        "Cluster 8",
+        "Cluster 9",
+        "Cluster 10",
+        "Cluster 11",
+        "Cluster 12",
+        "Cluster 13"
+      ),
+      vlnplot.lineweight = 0.5,
+      legend.show = FALSE,
+      jitter.size = 0.5,
+      color.panel = color_list
+    )
+  }
+```
 
-grouped_violinPlots(markers.filtered.names.1, 1)
-grouped_violinPlots(markers.filtered.names.2, 2)
-grouped_violinPlots(markers.filtered.names.3, 3)
-grouped_violinPlots(markers.filtered.names.4, 4)
-grouped_violinPlots(markers.filtered.names.5, 5)
-grouped_violinPlots(markers.filtered.names.6, 6)
-grouped_violinPlots(markers.filtered.names.7, 7)
-grouped_violinPlots(markers.filtered.names.8, 8)
-grouped_violinPlots(markers.filtered.names.9, 9)
-grouped_violinPlots(markers.filtered.names.10, 10)
-grouped_violinPlots(markers.filtered.names.11, 11)
-grouped_violinPlots(markers.filtered.names.12, 12)
-grouped_violinPlots(markers.filtered.names.13, 13)
-
-
-# load placenta cell enrcih dataset 
-l <- load(file = "~/TutejaLab/PlacentaEnrich/combine-test-expression1.Rdata")
+```{r pceData, warnings=TRUE, message=FALSE} 
+l <-
+  load(file = "~/TutejaLab/PlacentaEnrich/combine-test-expression1.Rdata")
 humanGeneMapping <- dataset$GRCH38$humanGeneMapping
 d <- dataset$PlacentaDeciduaBloodData
 data <- d$expressionData
 cellDetails <- d$cellDetails
+```
 
-runpce <- function(inputgenelist, clusternumber) {
-  inputGenes<-toupper(inputgenelist)
-  humanGene<-humanGeneMapping[humanGeneMapping$Gene.name %in% inputGenes,]
-  inputGenes<-humanGene$Gene
-  expressionData<-data[intersect(row.names(data),humanGeneMapping$Gene),]
-  se<-SummarizedExperiment(assays = SimpleList(as.matrix(expressionData)),rowData = row.names(expressionData),colData = colnames(expressionData))
-  cellSpecificGenesExp<-teGeneRetrieval(se,expressedGeneThreshold = 1)
+```{r pceFunction, warnings=TRUE, message=FALSE} 
+runpce <- function(inputgenelist, clusternumber, shade) {
+  inputGenes <- toupper(inputgenelist)
+  humanGene <-
+    humanGeneMapping[humanGeneMapping$Gene.name %in% inputGenes, ]
+  inputGenes <- humanGene$Gene
+  expressionData <-
+    data[intersect(row.names(data), humanGeneMapping$Gene), ]
+  se <-
+    SummarizedExperiment(
+      assays = SimpleList(as.matrix(expressionData)),
+      rowData = row.names(expressionData),
+      colData = colnames(expressionData)
+    )
+  cellSpecificGenesExp <-
+    teGeneRetrieval(se, expressedGeneThreshold = 1)
   print(length(inputGenes))
-  gs<-GeneSet(geneIds=toupper(inputGenes))
-  output2<-teEnrichmentCustom(gs,cellSpecificGenesExp)
-  enrichmentOutput<-setNames(data.frame(assay(output2[[1]]),row.names = rowData(output2[[1]])[,1]),colData(output2[[1]])[,1])
-  row.names(cellDetails)<-cellDetails$RName
-  enrichmentOutput$Tissue<- cellDetails[row.names(enrichmentOutput),"CellName"]
-  p <- ggplot(data = enrichmentOutput, mapping = aes(x = reorder (Tissue, -Log10PValue), Log10PValue, fill= Tissue)) +
-    geom_bar(stat = "identity") + theme_minimal() + 
-    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12),
-          axis.text.y = element_text(size = 12),
-          plot.margin = margin(10, 10, 10, 100), legend.position = "none",
-          plot.title = element_text(color = "black", size=18, face="bold.italic"),
-          axis.title.x = element_blank(),
-          axis.title.y = element_text(color="black", size=14, face="bold")) +
-    scale_y_continuous(expand = expansion(mult = c(0, .1))) +
-    ggtitle(paste("Cluster ", clusternumber )) + ylab("-log10 p-value")
-  ggsave(paste("Cluster_", clusternumber, ".png"), dpi=700, width = 10, height = 8)
+  gs <- GeneSet(geneIds = toupper(inputGenes))
+  output2 <- teEnrichmentCustom(gs, cellSpecificGenesExp)
+  enrichmentOutput <-
+    setNames(data.frame(assay(output2[[1]]), row.names = rowData(output2[[1]])[, 1]),
+             colData(output2[[1]])[, 1])
+  row.names(cellDetails) <- cellDetails$RName
+  enrichmentOutput$Tissue <-
+    cellDetails[row.names(enrichmentOutput), "CellName"]
+  
+  ggplot(data = enrichmentOutput,
+         mapping = aes(x = reorder (Tissue,-Log10PValue), Log10PValue)) +
+    geom_bar(stat = "identity",
+             color = shade,
+             fill = shade) + theme_classic(base_size = 10) +
+    theme(
+      axis.text.x = element_text(
+        angle = 45,
+        vjust = 1,
+        hjust = 1,
+        size = 10
+      ),
+      plot.margin = unit(c(1, 1, 1, 3), "cm")
+    ) +
+    ggtitle(paste0("Cluster ", clusternumber, " PCE")) +
+    ylab("-log10 p-value (adj.)") +
+    xlab("") +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)))
 }
+```
 
-runpce(markers.filtered.names.1, 1)
-runpce(markers.filtered.names.2, 2)
-runpce(markers.filtered.names.3, 3)
-runpce(markers.filtered.names.4, 4)
-runpce(markers.filtered.names.5, 5)
-runpce(markers.filtered.names.6, 6)
-runpce(markers.filtered.names.7, 7)
-runpce(markers.filtered.names.8, 8)
-runpce(markers.filtered.names.9, 9)
-runpce(markers.filtered.names.10, 10)
-runpce(markers.filtered.names.11, 11)
-runpce(markers.filtered.names.12, 12)
-runpce(markers.filtered.names.13, 13)
+```{r cluster1, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 1, color_list[1])
+count <- mybarplot(Cluster_1, 1)
+violin <- grouped_violinPlots(cluster.marker.names.1, 1)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+
+```{r cluster2, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.2, 2, color_list[2])
+count <- mybarplot(Cluster_2, 2)
+violin <- grouped_violinPlots(cluster.marker.names.2, 2)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster3, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.3, 3, color_list[3])
+count <- mybarplot(Cluster_3, 3)
+violin <- grouped_violinPlots(cluster.marker.names.3, 3)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster4, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.4, 4, color_list[4])
+count <- mybarplot(Cluster_4, 4)
+violin <- grouped_violinPlots(cluster.marker.names.4, 4)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster5, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.5, 5, color_list[5])
+count <- mybarplot(Cluster_5, 5)
+violin <- grouped_violinPlots(cluster.marker.names.5, 5)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster6, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.6, 6, color_list[6])
+count <- mybarplot(Cluster_6, 6)
+violin <- grouped_violinPlots(cluster.marker.names.6, 6)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster7, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.7, 7, color_list[7])
+count <- mybarplot(Cluster_7, 7)
+violin <- grouped_violinPlots(cluster.marker.names.7, 7)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster8, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 8, color_list[8])
+count <- mybarplot(Cluster_8, 8)
+violin <- grouped_violinPlots(cluster.marker.names.8, 8)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster9, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 9, color_list[9])
+count <- mybarplot(Cluster_9, 9)
+violin <- grouped_violinPlots(cluster.marker.names.9, 9)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster10, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 10, color_list[10])
+count <- mybarplot(Cluster_10, 10)
+violin <- grouped_violinPlots(cluster.marker.names.10, 10)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster11, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 11, color_list[11])
+count <- mybarplot(Cluster_11, 11)
+violin <- grouped_violinPlots(cluster.marker.names.11, 11)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster12, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 12, color_list[12])
+count <- mybarplot(Cluster_12, 12)
+violin <- grouped_violinPlots(cluster.marker.names.12, 12)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+```{r cluster13, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+pce <- runpce(cluster.marker.names.1, 13, color_list[13])
+count <- mybarplot(Cluster_13, 13)
+violin <- grouped_violinPlots(cluster.marker.names.13, 13)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+
+```{r pceFunction2, warnings=TRUE, message=FALSE} 
+getSTB <- function(inputgenelist) {
+  inputGenes <- toupper(inputgenelist)
+  humanGene <-
+    humanGeneMapping[humanGeneMapping$Gene.name %in% inputGenes,]
+  inputGenes <- humanGene$Gene
+  expressionData <-
+    data[intersect(row.names(data), humanGeneMapping$Gene),]
+  se <-
+    SummarizedExperiment(
+      assays = SimpleList(as.matrix(expressionData)),
+      rowData = row.names(expressionData),
+      colData = colnames(expressionData)
+    )
+  cellSpecificGenesExp <-
+    teGeneRetrieval(se, expressedGeneThreshold = 1)
+  print(length(inputGenes))
+  gs <- GeneSet(geneIds = toupper(inputGenes))
+  output2 <- teEnrichmentCustom(gs, cellSpecificGenesExp)
+  enrichmentOutput <-
+    setNames(data.frame(assay(output2[[1]]), row.names = rowData(output2[[1]])[, 1]),
+             colData(output2[[1]])[, 1])
+  row.names(cellDetails) <- cellDetails$RName
+  enrichmentOutput$Tissue <-
+    cellDetails[row.names(enrichmentOutput), "CellName"]
+  sct.genes <- as.data.frame(assay(output2[[2]][["SCT"]]))[1]
+  sct.genes <-
+    humanGeneMapping[humanGeneMapping$Gene %in% as.list(sct.genes$Gene), ]
+  sct.genes <- sct.genes$Gene.name
+  return(sct.genes)
+}
+```
+```{r heatmapInputPrep, warnings=TRUE, message=FALSE}
+STB.clus.6.all <- getSTB(cluster.marker.names.6)
+STB.clus.8.all <- getSTB(cluster.marker.names.8)
+STB.clus.6.n.8 <- unique(c(clus8.STB, clus6.STB))
+STB.clus.6.exl <-setdiff(clus6.STB, clus8.STB)
+STB.clus.8.exl <-setdiff(clus8.STB, clus6.STB)
+cts <- as.matrix(read.csv("assets/GSE109555_All_Embryo_TPM.txt", sep="\t", row.names="genes"))
+df <- as.data.frame(colnames(cts))
+colnames(df) <- "cells"
+df$days <- NA
+df$days[which(str_detect(df$cells, "D14"))] <- "D14"
+df$days[which(str_detect(df$cells, "D12"))] <- "D12"
+df$days[which(str_detect(df$cells, "D10"))] <- "D10"
+df$days[which(str_detect(df$cells, "D8"))] <- "D8"
+df$days[which(str_detect(df$cells, "D6"))] <- "D6"
+df$days <- as.factor(df$days)
+df <- df %>% remove_rownames %>% column_to_rownames(var="cells")
+STB.clus.6.all.cts <- cts[rownames(cts) %in% STB.clus.6.all, ]
+STB.clus.8.all.cts <- cts[rownames(cts) %in% STB.clus.8.all, ]
+STB.clus.6.n.8.cts <- cts[rownames(cts) %in% STB.clus.6.n.8, ]
+STB.clus.6.exl.cts <- cts[rownames(cts) %in% STB.clus.6.exl, ]
+STB.clus.8.exl.cts <- cts[rownames(cts) %in% STB.clus.8.exl, ]
+heat_colors <- brewer.pal(9, "YlOrRd")
+```
+
+```{r heatmapFunc, warnings=TRUE, message=FALSE}
+mydatahm <- function(mycts, name) {
+  mycts.t <- as.data.frame(t(mycts))
+  mycts.t$days <- NA
+  mycts.t$days[which(str_detect(rownames(mycts.t), "D14"))] <- "D14"
+  mycts.t$days[which(str_detect(rownames(mycts.t), "D12"))] <- "D12"
+  mycts.t$days[which(str_detect(rownames(mycts.t), "D10"))] <- "D10"
+  mycts.t$days[which(str_detect(rownames(mycts.t), "D8"))] <- "D8"
+  mycts.t$days[which(str_detect(rownames(mycts.t), "D6"))] <- "D6"
+  mycts.mean <- aggregate(. ~ days, mycts.t, mean)
+  ordered <-
+    as.data.frame(t(
+      mycts.mean %>% remove_rownames %>% column_to_rownames(var = "days")
+    ))
+  ordered <- ordered[c("D6", "D8", "D10", "D12", "D14")]
+  hmap <- as.matrix(ordered)
+pheatmap(
+    hmap,
+    color = heat_colors,
+    cluster_rows = F,
+    cluster_cols = F,
+    show_rownames = T,
+    border_color = NA,
+    fontsize = 12,
+    scale = "row",
+    fontsize_row = 10
+  )
+}
+```
+
+
+```{r heatmap1, fig.cap="FigX: fig legend", fig.width=4, fig.height=6}
+mydatahm(STB.clus.6.exl.cts, "Cluster 6 only STB genes")
+```
+
+```{r heatmap2, fig.cap="FigX: fig legend", fig.width=4, fig.height=6}
+mydatahm(STB.clus.8.exl.cts, "Cluster 6 only STB genes")
+```
+
+
+```{r sessioninfo}
+sessionInfo()
+```
+

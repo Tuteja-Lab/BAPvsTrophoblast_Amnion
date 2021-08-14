@@ -208,3 +208,7 @@ g <- pheatmap(as.matrix(temp),
               fontsize_row = 11)
 g
 ```
+
+```{r sessioninfo}
+sessionInfo()
+```

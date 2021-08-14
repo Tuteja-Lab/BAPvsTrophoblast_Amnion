@@ -152,6 +152,9 @@ ggplotly(ggplot(pcaData, aes(PC1, PC2, color=group.1, shape=authors)) +
 ```
 
 
+```{r sessioninfo}
+sessionInfo()
+```
 
 
 
