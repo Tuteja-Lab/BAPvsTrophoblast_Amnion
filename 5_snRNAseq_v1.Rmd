@@ -58,6 +58,7 @@ library(RColorBrewer)
 library(pheatmap)
 library(scales)
 library(plotly)
+library(R.utils)
 ```
 
 ## Import datasets
@@ -995,9 +996,18 @@ getSTB <- function(inputgenelist) {
 STB.clus.6.all <- getSTB(cluster.marker.names.6)
 STB.clus.8.all <- getSTB(cluster.marker.names.8)
 STB.clus.6.n.8 <- unique(c(clus8.STB, clus6.STB))
-STB.clus.6.exl <-setdiff(clus6.STB, clus8.STB)
-STB.clus.8.exl <-setdiff(clus8.STB, clus6.STB)
-cts <- as.matrix(read.csv("assets/GSE109555_All_Embryo_TPM.txt", sep="\t", row.names="genes"))
+STB.clus.6.exl <- setdiff(clus6.STB, clus8.STB)
+STB.clus.8.exl <- setdiff(clus8.STB, clus6.STB)
+link <-
+  "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE109nnn/GSE109555/suppl/GSE109555_All_Embryo_TPM.txt.gz"
+download.file(link, "GSE109555_All_Embryo_TPM.txt.gz")
+gunzip("GSE109555_All_Embryo_TPM.txt.gz")
+cts <-
+  as.matrix(read.csv(
+    "GSE109555_All_Embryo_TPM.txt",
+    sep = "\t",
+    row.names = "genes"
+  ))
 df <- as.data.frame(colnames(cts))
 colnames(df) <- "cells"
 df$days <- NA
@@ -1007,7 +1017,7 @@ df$days[which(str_detect(df$cells, "D10"))] <- "D10"
 df$days[which(str_detect(df$cells, "D8"))] <- "D8"
 df$days[which(str_detect(df$cells, "D6"))] <- "D6"
 df$days <- as.factor(df$days)
-df <- df %>% remove_rownames %>% column_to_rownames(var="cells")
+df <- df %>% remove_rownames %>% column_to_rownames(var = "cells")
 STB.clus.6.all.cts <- cts[rownames(cts) %in% STB.clus.6.all, ]
 STB.clus.8.all.cts <- cts[rownames(cts) %in% STB.clus.8.all, ]
 STB.clus.6.n.8.cts <- cts[rownames(cts) %in% STB.clus.6.n.8, ]
