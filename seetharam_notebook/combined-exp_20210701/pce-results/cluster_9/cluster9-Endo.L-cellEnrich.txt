@@ -1,2 +1,0 @@
-"tegenes"
-"Endo.L","SPTBN1;AKAP12;GJA1;FABP5"

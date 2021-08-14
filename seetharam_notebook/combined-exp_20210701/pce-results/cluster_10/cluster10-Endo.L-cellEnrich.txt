@@ -1,2 +1,0 @@
-"tegenes"
-"Endo.L","TFPI;CD9;SPTBN1;APP;PRSS23;LAYN;EMP2"

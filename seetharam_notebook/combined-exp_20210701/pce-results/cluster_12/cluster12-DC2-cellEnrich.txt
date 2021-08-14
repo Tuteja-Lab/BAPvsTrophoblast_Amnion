@@ -1,2 +1,0 @@
-"tegenes"
-"DC2","SAMHD1"

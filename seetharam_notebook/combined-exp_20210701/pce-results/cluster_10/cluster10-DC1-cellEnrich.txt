@@ -1,2 +1,0 @@
-"tegenes"
-"DC1","CD74;CADM1"

@@ -1,0 +1,157 @@
+---
+title: "Section 3: PCA plots"
+date: "`r Sys.Date()`"
+author:
+  - name: "Arun Seetharam, Ha Vu"
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::html_clean:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/"
+)
+```
+
+# PCA plots
+
+This section uses the counts data generated in Section 1 to perform PCA analyses and plot them. 
+
+## Prerequisites
+
+Packages required for this analyses are loaded as follows:
+
+```{r, warnings=TRUE, message=FALSE}
+setwd("~/github/amnion.vs.other_RNASeq")
+library(sva)
+library(tidyverse)
+library(DESeq2)
+library(vsn)
+library(pheatmap)
+library(ggrepel)
+library(RColorBrewer)
+library(plotly)
+```
+
+## Import datasets
+
+The `counts` data and its associated metadata (`coldata`) are imported for analyses
+
+```{r dataset, warnings=TRUE, message=FALSE}
+counts = 'assets/new-counts.tsv'
+groupFile = 'assets/new-batch.v2.tsv'
+coldata <- read.csv(groupFile, row.names=1, sep="\t", stringsAsFactors = TRUE)
+cts <- as.matrix(read.csv(counts,sep="\t",row.names="gene.ids"))
+```
+
+Inspect the `coldata`
+
+```{r coldata}
+DT::datatable(coldata)
+```
+
+order and inspect if all the `coldata` matches the headers of the counts data.
+
+```{r order, warnings=TRUE, message=FALSE}
+colnames(cts)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+
+```{r batchcorrect, warnings=TRUE, message=TRUE}
+cov1 <- as.factor(coldata$authors)
+adjusted_counts <- ComBat_seq(cts, batch=cov1, group=NULL)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+
+```{r deseq2, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
+                              colData = coldata,
+                              design = ~ group)
+```
+
+```{r vst, warnings=TRUE, message=FALSE}
+vsd <- vst(dds, blind=FALSE)
+pcaData <- plotPCA(vsd, intgroup=c("group", "authors"), returnData=TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+```
+
+
+
+```{r pcaplot, fig.cap="FigX: PCA plots (all samples)", fig.width=8, fig.height=8}
+ggplotly(ggplot(pcaData, aes(PC1, PC2, color=group.1, shape=authors)) +
+  scale_shape_manual(values=1:8) + 
+  theme_bw() +
+  theme(legend.title = element_blank(), legend.position = "none") +
+  geom_point(size=1, stroke = 1) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")))
+```
+
+
+## Plot differenciated cells only
+
+```{r import2, warnings=TRUE, message=FALSE}
+setwd("~/github/amnion.vs.other_RNASeq")
+counts2 = 'assets/counts-dotted.tsv'
+groupFile = 'assets/batch-dotted.v2.tsv'
+coldata2 <- read.csv(groupFile, row.names=1, sep="\t", stringsAsFactors = TRUE)
+cts2 <- as.matrix(read.csv(counts2,sep="\t",row.names="gene.ids"))
+all(rownames(coldata2) %in% colnames(cts2))
+cts2 <- cts2[, rownames(coldata2)]
+```
+
+Inspect the `coldata`
+
+```{r coldata2}
+DT::datatable(coldata2)
+```
+
+
+```{r batchcorrect2, warnings=TRUE, message=TRUE}
+cov1 <- as.factor(coldata2$authors)
+adjusted_counts <- ComBat_seq(cts2, batch=cov1, group=NULL)
+all(rownames(coldata2) %in% colnames(cts2))
+cts2 <- cts2[, rownames(coldata2)]
+```
+
+```{r deseq2b, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
+                              colData = coldata2,
+                              design = ~ group)
+```
+
+```{r vst2, warnings=TRUE, message=FALSE}
+vsd <- vst(dds, blind=FALSE)
+pcaData <- plotPCA(vsd, intgroup=c("group", "authors"), returnData=TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+```
+
+```{r PCAplotDiffer, fig.cap="FigX: PCA plots (all samples)", fig.width=8, fig.height=8}
+ggplotly(ggplot(pcaData, aes(PC1, PC2, color=group.1, shape=authors)) +
+  scale_shape_manual(values=1:8) + 
+  theme_bw() +
+  theme(legend.title = element_blank(), legend.position = "none") +
+  geom_point(size=1, stroke = 1) +
+  xlab(paste0("PC1: ",percentVar[1],"% variance")) +
+  ylab(paste0("PC2: ",percentVar[2],"% variance")))
+```
+
+
+
+
+

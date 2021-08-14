@@ -1,2 +1,0 @@
-"tegenes"
-"Epi2","KLF5;CLDN10;ASRGL1;ELF3;CKB;RIMKLB;JUP"

@@ -1,2 +1,0 @@
-"tegenes"
-"ILC3","CCL20;SPRY1;PCDH9"

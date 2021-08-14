@@ -1,0 +1,10 @@
+name	authors	group
+pBAP_D3.1	Io et al.	pBAP_D3
+pBAP_D3.2	Io et al.	pBAP_D3
+CT_7wk.1	Io et al.	CT_7wk
+CT_7wk.2	Io et al.	CT_7wk
+CT_9wk.1	Io et al.	CT_9wk
+CT_11wk.1	Io et al.	CT_11wk
+H1_gt70_D8_BAP.1	Yabe et al.	H1_gt70_D8_BAP
+H1_gt70_D8_BAP.2	Yabe et al.	H1_gt70_D8_BAP
+H1_gt70_D8_BAP.3	Yabe et al.	H1_gt70_D8_BAP

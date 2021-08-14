@@ -1,2 +1,0 @@
-"tegenes"
-"dS1","PLPP1;PEMT"
