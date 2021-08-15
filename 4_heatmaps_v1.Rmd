@@ -24,13 +24,13 @@ knitr::opts_chunk$set(
 )
 ```
 
-# Heatmap
+## Heatmap
 
-This section uses the counts data generated in Section 1 to perform PCA analyses and plot them. 
+This section uses the counts data (selected datasets) generated in Section 1 for generating heatmaps. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, `vst` transformation is perfromed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
 
 ## Prerequisites
 
-Packages required for this analyses are loaded as follows:
+R packages required for this section are loaded
 
 ```{r, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -46,7 +46,6 @@ library(reshape2)
 library(plotly)
 ```
 
-
 ## Import datasets
 
 The `counts` data and its associated metadata (`coldata`) are imported for analyses
@@ -57,13 +56,13 @@ groupFile = 'assets/batch.tsv'
 coldata <- read.csv(groupFile, row.names=1, sep="\t", stringsAsFactors = TRUE)
 cts <- as.matrix(read.csv(counts,sep="\t",row.names="gene.ids"))
 ```
-Inspect the `coldata`
+inspect the `coldata`
 
 ```{r coldata}
 DT::datatable(coldata)
 ```
 
-order and inspect if all the `coldata` matches the headers of the counts data.
+reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
 
 ```{r order, warnings=TRUE, message=FALSE}
 colnames(cts)
@@ -71,6 +70,9 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
+## Batch correction
+
+Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
 
 ```{r batchcorrect, warnings=TRUE, message=TRUE}
 cov1 <- as.factor(coldata$authors)
@@ -79,6 +81,9 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
+## run DESeq2
+
+The batch corrected read counts are then used for running DESeq2 analyses
 
 ```{r deseq2, warnings=TRUE, message=FALSE}
 dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
@@ -90,6 +95,8 @@ dds <- dds[keep,]
 dds <- DESeq(dds)
 ```
 
+normalized
+
 ```{r normtable, warnings=TRUE, message=FALSE}
 normalized_counts <- counts(dds, normalized=T) %>%
   data.frame() %>%
@@ -98,6 +105,7 @@ normalized_counts <- normalized_counts %>%
   as_tibble()
 ```
 
+### Data for monkey amnion genes
 
 ```{r monkey, warnings=TRUE, message=FALSE}
 file1 <- "assets/genes-monkey.txt"
@@ -110,10 +118,13 @@ norm_selected <- normalized_counts %>%
   filter(gene %in% G_list$ensembl_gene_id_version)
 write_delim(norm_selected, file="assets/monkey_genes_normalized-table.tsv", delim = "\t")
 ```
+inspect
 
 ```{r monkeytable}
 DT::datatable(norm_selected)
 ```
+
+data processing
 
 ```{r monkey2, warnings=TRUE, message=FALSE}
 norm.selected.long <- melt(norm_selected, id.vars="gene")
@@ -136,8 +147,9 @@ rownames(annotation) <- colnames(temp)
 temp <- temp[,c(8,9,5,6,7,2,3,4,1)]
 ```
 
+visualization
 
-```{r heatmap1, fig.cap="FigX: Heatmap", fig.width=8, fig.height=8}
+```{r heatmap1, fig.cap="Fig 4.1: Heatmap comparing the monkey amnion genes across various datasets", fig.width=8, fig.height=8}
 pheatmap(as.matrix(temp),
               color = heat_colors,
               cluster_cols = F,
@@ -150,6 +162,8 @@ pheatmap(as.matrix(temp),
               fontsize_row = 11)
 ```
 
+### Data for amnion genes from supplement table of Io paper
+
 ```{r supp2read, warnings=TRUE, message=FALSE}
 supp2 <- merge(norm_selected, G_list,
                by.x = "gene",
@@ -159,11 +173,13 @@ supp2 <- merge(norm_selected, G_list,
 write_delim(supp2, file="assets/supp2_normalized-table.tsv", delim = "\t")
 ```
 
+inspect
 
 ```{r supptable}
 DT::datatable(supp2)
 ```
 
+processing
 
 ```{r supp2process, warnings=TRUE, message=FALSE}
 file1 <- "assets/genes-Fig6b.txt"
@@ -193,9 +209,9 @@ heat_colors <- brewer.pal(9, "YlOrRd")
 rownames(annotation) <- colnames(temp)
 temp <- temp[,c(8,9,5,6,7,2,3,4,1)]
 ```
+visualization
 
-
-```{r heatmap2, fig.cap="FigX: Heatmap", fig.width=8, fig.height=20}
+```{r heatmap2, fig.cap="Fig 4.2: Heatmap comparing the Io amnion genes across various datasets", fig.width=8, fig.height=20}
 g <- pheatmap(as.matrix(temp),
               color = heat_colors,
               cluster_cols = F,

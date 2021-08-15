@@ -24,13 +24,13 @@ knitr::opts_chunk$set(
 )
 ```
 
-# DESeq2 analyses steps
+## DESeq2 analyses steps
 
-This section uses the counts data generated in Section 1 to differential expression analyses using DESeq2. 
+This section uses the counts data (for selected datasets) generated in Section 1 to differential expression (DE) analyses using `DESeq2`. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, DE performed for various contrasts using `DESeq2`, results visualized as volcano plots, and cell enrichment performed using `PlacentaCellEnrich`.
 
 ## Prerequisites
 
-Packages required for this analyses are loaded as follows:
+R packages required for this section are loaded
 
 ```{r, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -64,13 +64,13 @@ coldata <- read.csv(groupFile, row.names=1, sep="\t", stringsAsFactors = TRUE)
 cts <- as.matrix(read.csv(counts,sep="\t",row.names="gene.ids"))
 ```
 
-visualize the `coldata`
+inspect the `coldata`
 
 ```{r coldata}
 DT::datatable(coldata)
 ```
 
-order and inspect if all the `coldata` matches the headers of the counts data.
+reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
 
 ```{r order, warnings=TRUE, message=FALSE}
 colnames(cts)
@@ -80,7 +80,7 @@ cts <- cts[, rownames(coldata)]
 
 ## Batch correction
 
-We will use the combat seq (SVA package) to run batch correction based on the bioproject (dataset origin)
+Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
 
 ```{r batchcorrect, warnings=TRUE, message=FALSE}
 cov1 <- as.factor(coldata$BioProject)
@@ -136,7 +136,7 @@ res.STBvsL40 <- results(dds, contrast=c("condition",
                                         "hESC_H1_STB_lt40um_D8_BAP"))
 ```
 
-function to save results
+Using a function we will save results as well as generate variable to hold the gene lists for running PCE later-on.
 
 ```{r deseq2funx, warnings=TRUE, message=FALSE}
 processDE <- function(restable, fileName) {
@@ -161,6 +161,7 @@ processDE <- function(restable, fileName) {
 ```
 
 The results are saved as tsv files 
+
 ```{r deseq2save, warnings=TRUE, message=FALSE}
 processDE(res.nCTvsBAP, "nCTvsBAP")
 processDE(res.nCTvsSTB, "nCTvsSTB")
@@ -174,10 +175,10 @@ processDE(res.BAPvsSTB, "BAPvsSTB")
 ```
 
 
-## Preparing GeneLists for PCE
+## GeneLists for PCE
 
-We will create a function to save the DE gene lists (up and down) and run PCE on them
-we will need the annotations to convert the gene-id-version to just gene-id (and add other metadata later)
+The gene-lists have ensembl gene-id-version. We need them in just gene-id. We also need other metadata later for these lists.
+From ensembl we will download metadata and attach to these lists.
 
 ```{r annotations, warnings=TRUE, message=FALSE}
 ensembl=useMart("ENSEMBL_MART_ENSEMBL")
@@ -203,8 +204,8 @@ dup <- annot$ensembl_gene_id[isDup]
 annot <- annot[!annot$ensembl_gene_id%in%dup,]
 ```
 
-function to create up regulated gene list
-
+We will create separate lists for up-regulated genes and for down-regulated genes.
+function for up-regulated genes.
 ```{r pcelist1, warnings=TRUE, message=FALSE}
 pceUP <- function(restable) {
   restable <- restable[order(restable$padj), ]
@@ -221,7 +222,7 @@ pceUP <- function(restable) {
   return(upList)
 }
 ```
-function to create down regulated gene list
+function for down-regulated genes.
 
 ```{r pcelist2, warnings=TRUE, message=FALSE}
 pceDOWN <- function(restable) {
@@ -262,8 +263,6 @@ STBvsL40.down <- pceDOWN(res.STBvsL40)
 BAPvsSTB.down <- pceDOWN(res.BAPvsSTB)
 ```
 
-
-
 ## Run PCE
 
 The above gene lists are used for running PCE. The function used for running PCE is below
@@ -302,70 +301,76 @@ runpce <- function(inputgenelist, title, shade) {
     scale_y_continuous(expand = expansion(mult = c(0, .1)))
 }
 ```
-
-      
 The PCE is run on each of the gene list as follows (up and down pair are displayed together)
 
-```{r pce1, fig.cap="FigX: H9_nCT_P10_Io vs. BAP.d3", fig.width=8, fig.height=14}
+### PCE: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
+
+```{r pce1, fig.cap="Fig 2.1: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=14}
 p <- runpce(nCTvsBAP.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
-q <- runpce(nCTvsBAP.down , "overexpressed in pBAP_D3_Io", "#0773B2")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+q <- runpce(nCTvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
+### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe
 
-```{r pce2, fig.cap="FigX: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
+```{r pce2, fig.cap="Fig 2.2: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
 p <- runpce(nCTvsSTB.up , "overexpressed in H9_nCT_P10_Io)", "#F16746")
 q <- runpce(nCTvsSTB.down , "overexpressed in H1_BAP_D8_>70_Yabe", "#5C823A")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
+### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
 
-```{r pce3, fig.cap="FigX: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
+```{r pce3, fig.cap="Fig 2.3: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
 p <- runpce(nTEvsSTB.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
 q <- runpce(nTEvsSTB.down , "overexpressed in H1_BAP_D8_>70_Yabe", "#5C823A")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
+### PCE: H9_nTE_D3_Io vs. pBAP_D3_Io
 
-```{r pce4, fig.cap="FigX: H9_nTE_D3_Io vs. pBAP_D3_Io", fig.width=8, fig.height=14}
+```{r pce4, fig.cap="Fig 2.4: H9_nTE_D3_Io vs. pBAP_D3_Io", fig.width=8, fig.height=14}
 p <- runpce(nTEvsBAP.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <- runpce(nTEvsBAP.down , "overexpressed in pBAP_D3_Io", "#0773B2")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+q <- runpce(nTEvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
-```{r pce5, fig.cap="FigX: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
+### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
+```{r pce5, fig.cap="Fig 2.5: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <- runpce(nTEvsL40.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
 q <- runpce(nTEvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#AFBF38")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
-```{r pce6, fig.cap="FigX: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
+### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
+```{r pce6, fig.cap="Fig 2.6: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <- runpce(nCTvsL40.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
 q <- runpce(nCTvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#AFBF38")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
-
-```{r pce7, fig.cap="FigX: pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <- runpce(BAPvsL40.up , "up regulated in pBAP_D3_Io", "#0773B2")
+### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
+```{r pce7, fig.cap="Fig 2.7: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
+p <- runpce(BAPvsL40.up , "up regulated in H9_pBAP_D3_Io", "#0773B2")
 q <- runpce(BAPvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#AFBF38")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
-```{r pce8, fig.cap="FigX: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
+### PCE: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
+```{r pce8, fig.cap="Fig 2.8: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <- runpce(STBvsL40.up , "overexpressed in H1_BAP_D8_>70_Yabe", "#AFBF38")
 q <- runpce(STBvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#0773B2")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
-
-```{r pce9, fig.cap="FigX: pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <- runpce(BAPvsSTB.up , "overexpressed in pBAP_D3_Io", "#0773B2")
+### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
+```{r pce9, fig.cap="Fig 2.9: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
+p <- runpce(BAPvsSTB.up , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
 q <- runpce(BAPvsSTB.down , "overexpressed in H1_BAP_D8_>70_Yabe", "#5C823A")
-panel_plot <- plot_grid(p, q, labels=c("X", "Y"), ncol=1, nrow = 2)
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
@@ -421,31 +426,48 @@ myVolPlot <- function(restable, first, second, shade1, shade2) {
 
 Running Volcano plots for each comparison is shown below
 
-```{r vol1, fig.cap="FigX: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
+### Volcano plot: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
+```{r vol1, fig.cap="Fig 2.10: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.nCTvsBAP, "H9_nCT_P10_Io", "H9_pBAP_D3_Io", "#F16746", "#0571b0" ))
 ```
-```{r vol2, fig.cap="FigX: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe
+```{r vol2, fig.cap="Fig 2.11: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.nCTvsSTB, "H9_nCT_P10_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#F16746" ))
 ```
-```{r vol3, fig.cap="FigX: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
+```{r vol3, fig.cap="Fig 2.12: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.nTEvsSTB, "H9_nTE_D3_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#C79D2E" ))
 ```
-```{r vol4, fig.cap="FigX: H9_nTE_D3_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_nTE_D3_Io vs. H9_pBAP_D3_Io
+```{r vol4, fig.cap="Fig 2.13: H9_nTE_D3_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.nTEvsBAP, "H9_nTE_D3_Io", "H9_pBAP_D3_Io", "#C79D2E", "#0571b0" ))
 ```
-```{r vol5, fig.cap="FigX: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
+```{r vol5, fig.cap="Fig 2.14: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.nTEvsL40, "H9_nTE_D3_Io", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#C79D2E"))
 ```
-```{r vol6, fig.cap="FigX: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
+```{r vol6, fig.cap="Fig 2.15: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.nCTvsL40, "H9_nCT_P10_Io", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#F16746" ))
 ```
-```{r vol7, fig.cap="FigX: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
+```{r vol7, fig.cap="Fig 2.16: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.BAPvsL40, "H9_pBAP_D3_Io", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#0571b0" ))
 ```
-```{r vol8, fig.cap="FigX: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
+```{r vol8, fig.cap="Fig 2.17: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.STBvsL40, "H1_BAP_D8_>70_Yabe", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#5C823A" ))
 ```
-```{r vol9, fig.cap="FigX: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+
+### Volcano plot: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
+```{r vol9, fig.cap="Fig 2.18: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
 ggplotly(myVolPlot(res.BAPvsSTB, "H9_pBAP_D3_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#0571b0" ))
 ```
 
