@@ -2,11 +2,12 @@
 title: "Section 4: Heatmaps"
 date: "`r Sys.Date()`"
 author:
-  - name: "Arun Seetharam, Ha Vu"
+  - name: Arun Seetharam
+  - name: Ha Vu
     affiliation: Tuteja Lab
     affiliation_url: https://www.tutejalab.org
 output:
-  rmdformats::html_clean:
+  rmdformats::readthedown:
     self_contained: true
     thumbnails: false
     lightbox: true
@@ -15,16 +16,22 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-
+options(max.print = "75")
 knitr::opts_chunk$set(
   echo = TRUE,
   collapse = TRUE,
   comment = "#>",
-  fig.path = "assets/"
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
 )
+knitr::opts_knit$set(width = 75)
 ```
 
-## Heatmap
+## Generating heatmaps for selected genes
 
 This section uses the counts data (selected datasets) generated in Section 1 for generating heatmaps. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, `vst` transformation is perfromed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
 
@@ -53,8 +60,14 @@ The `counts` data and its associated metadata (`coldata`) are imported for analy
 ```{r dataset, warnings=TRUE, message=FALSE}
 counts = 'assets/counts.tsv'
 groupFile = 'assets/batch.tsv'
-coldata <- read.csv(groupFile, row.names=1, sep="\t", stringsAsFactors = TRUE)
-cts <- as.matrix(read.csv(counts,sep="\t",row.names="gene.ids"))
+coldata <-
+  read.csv(
+    groupFile,
+    row.names = 1,
+    sep = "\t",
+    stringsAsFactors = TRUE
+  )
+cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
 ```
 inspect the `coldata`
 
@@ -76,7 +89,7 @@ Using combat seq (SVA package) run batch correction - using bioproject ids as va
 
 ```{r batchcorrect, warnings=TRUE, message=TRUE}
 cov1 <- as.factor(coldata$authors)
-adjusted_counts <- ComBat_seq(cts, batch=cov1, group=NULL)
+adjusted_counts <- ComBat_seq(cts, batch = cov1, group = NULL)
 all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
@@ -89,18 +102,18 @@ The batch corrected read counts are then used for running DESeq2 analyses
 dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               colData = coldata,
                               design = ~ group)
-vsd <- vst(dds, blind=FALSE)
+vsd <- vst(dds, blind = FALSE)
 keep <- rowSums(counts(dds)) >= 10
-dds <- dds[keep,]
+dds <- dds[keep, ]
 dds <- DESeq(dds)
 ```
 
 normalized
 
 ```{r normtable, warnings=TRUE, message=FALSE}
-normalized_counts <- counts(dds, normalized=T) %>%
+normalized_counts <- counts(dds, normalized = T) %>%
   data.frame() %>%
-  rownames_to_column(var="gene")
+  rownames_to_column(var = "gene")
 normalized_counts <- normalized_counts %>%
   as_tibble()
 ```
@@ -109,14 +122,25 @@ normalized_counts <- normalized_counts %>%
 
 ```{r monkey, warnings=TRUE, message=FALSE}
 file1 <- "assets/genes-monkey.txt"
-monkey <- read.csv(file1, sep="\t", header = TRUE, stringsAsFactors = FALSE)
+monkey <-
+  read.csv(file1,
+           sep = "\t",
+           header = TRUE,
+           stringsAsFactors = FALSE)
 genes.monkey = monkey$genes
-attributes=c('ensembl_gene_id_version','hgnc_symbol')
-mart <- useMart("ensembl", dataset="hsapiens_gene_ensembl")
-G_list<- getBM(attributes=attributes, filters="hgnc_symbol",values=genes.monkey, mart=mart, uniqueRows=T)
+attributes = c('ensembl_gene_id_version', 'hgnc_symbol')
+mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+G_list <-
+  getBM(
+    attributes = attributes,
+    filters = "hgnc_symbol",
+    values = genes.monkey,
+    mart = mart,
+    uniqueRows = T
+  )
 norm_selected <- normalized_counts %>%
   filter(gene %in% G_list$ensembl_gene_id_version)
-write_delim(norm_selected, file="assets/monkey_genes_normalized-table.tsv", delim = "\t")
+write_delim(norm_selected, file = "assets/monkey_genes_normalized-table.tsv", delim = "\t")
 ```
 inspect
 
@@ -127,50 +151,66 @@ DT::datatable(norm_selected)
 data processing
 
 ```{r monkey2, warnings=TRUE, message=FALSE}
-norm.selected.long <- melt(norm_selected, id.vars="gene")
-defile= "assets/celltypes-for-heatmap.txt"
-decoldata <- read.csv(defile, sep="\t", header = TRUE, stringsAsFactors = TRUE)
+norm.selected.long <- melt(norm_selected, id.vars = "gene")
+defile = "assets/celltypes-for-heatmap.txt"
+decoldata <-
+  read.csv(defile,
+           sep = "\t",
+           header = TRUE,
+           stringsAsFactors = TRUE)
 de_names <- decoldata$name
-de.norm.selected.long <- norm.selected.long %>% filter (variable %in% de_names)
-colnames(de.norm.selected.long) <- c("gene", "condition", "norm.expression")
-de.norm.selected.long <- merge(de.norm.selected.long, G_list,
-                               by.x = "gene",
-                               by.y = "ensembl_gene_id_version",
-                               all.x = TRUE,
-                               all.y = FALSE)
-de.norm.selected.wide <- dcast(de.norm.selected.long, hgnc_symbol ~ condition, value.var="norm.expression")
-temp <- de.norm.selected.wide[,-1]
-row.names(temp) <- de.norm.selected.wide[,1]
-annotation <- data.frame(Condition = factor(1:9, labels = gsub('.{2}$', '', colnames(temp)) ))
+de.norm.selected.long <-
+  norm.selected.long %>% filter (variable %in% de_names)
+colnames(de.norm.selected.long) <-
+  c("gene", "condition", "norm.expression")
+de.norm.selected.long <- merge(
+  de.norm.selected.long,
+  G_list,
+  by.x = "gene",
+  by.y = "ensembl_gene_id_version",
+  all.x = TRUE,
+  all.y = FALSE
+)
+de.norm.selected.wide <-
+  dcast(de.norm.selected.long, hgnc_symbol ~ condition, value.var = "norm.expression")
+temp <- de.norm.selected.wide[, -1]
+row.names(temp) <- de.norm.selected.wide[, 1]
+annotation <-
+  data.frame(Condition = factor(1:9, labels = gsub('.{2}$', '', colnames(temp))))
 heat_colors <- brewer.pal(9, "YlOrRd")
 rownames(annotation) <- colnames(temp)
-temp <- temp[,c(8,9,5,6,7,2,3,4,1)]
+temp <- temp[, c(8, 9, 5, 6, 7, 2, 3, 4, 1)]
 ```
 
 visualization
 
 ```{r heatmap1, fig.cap="Fig 4.1: Heatmap comparing the monkey amnion genes across various datasets", fig.width=8, fig.height=8}
-pheatmap(as.matrix(temp),
-              color = heat_colors,
-              cluster_cols = F,
-              cluster_rows = F,
-              show_rownames = T,
-              annotation_col = annotation,
-              border_color = NA,
-              fontsize = 11,
-              scale = "row",
-              fontsize_row = 11)
+pheatmap(
+  as.matrix(temp),
+  color = heat_colors,
+  cluster_cols = F,
+  cluster_rows = F,
+  show_rownames = T,
+  annotation_col = annotation,
+  border_color = NA,
+  fontsize = 11,
+  scale = "row",
+  fontsize_row = 11
+)
 ```
 
 ### Data for amnion genes from supplement table of Io paper
 
 ```{r supp2read, warnings=TRUE, message=FALSE}
-supp2 <- merge(norm_selected, G_list,
-               by.x = "gene",
-               by.y = "ensembl_gene_id_version",
-               all.x = TRUE,
-               all.y = TRUE)
-write_delim(supp2, file="assets/supp2_normalized-table.tsv", delim = "\t")
+supp2 <- merge(
+  norm_selected,
+  G_list,
+  by.x = "gene",
+  by.y = "ensembl_gene_id_version",
+  all.x = TRUE,
+  all.y = TRUE
+)
+write_delim(supp2, file = "assets/supp2_normalized-table.tsv", delim = "\t")
 ```
 
 inspect
@@ -183,47 +223,73 @@ processing
 
 ```{r supp2process, warnings=TRUE, message=FALSE}
 file1 <- "assets/genes-Fig6b.txt"
-fig6b <- read.csv(file1, sep="\t", header = TRUE, stringsAsFactors = FALSE)
+fig6b <-
+  read.csv(file1,
+           sep = "\t",
+           header = TRUE,
+           stringsAsFactors = FALSE)
 genes.fig6b = fig6b$genes
-attributes=c('ensembl_gene_id_version','hgnc_symbol')
-mart <- useMart("ensembl", dataset="hsapiens_gene_ensembl")
-G_list<- getBM(attributes=attributes, filters="hgnc_symbol",values=genes.fig6b, mart=mart, uniqueRows=T)
+attributes = c('ensembl_gene_id_version', 'hgnc_symbol')
+mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
+G_list <-
+  getBM(
+    attributes = attributes,
+    filters = "hgnc_symbol",
+    values = genes.fig6b,
+    mart = mart,
+    uniqueRows = T
+  )
 norm_selected <- normalized_counts %>%
   filter(gene %in% G_list$ensembl_gene_id_version)
-norm.selected.long <- melt(norm_selected, id.vars="gene")
-defile= "assets/celltypes-for-heatmap.txt"
-decoldata <- read.csv(defile, sep="\t", header = TRUE, stringsAsFactors = TRUE)
+norm.selected.long <- melt(norm_selected, id.vars = "gene")
+defile = "assets/celltypes-for-heatmap.txt"
+decoldata <-
+  read.csv(defile,
+           sep = "\t",
+           header = TRUE,
+           stringsAsFactors = TRUE)
 de_names <- decoldata$name
-de.norm.selected.long <- norm.selected.long %>% filter (variable %in% de_names)
-colnames(de.norm.selected.long) <- c("gene", "condition", "norm.expression")
-de.norm.selected.long <- merge(de.norm.selected.long, G_list,
-                               by.x = "gene",
-                               by.y = "ensembl_gene_id_version",
-                               all.x = TRUE,
-                               all.y = FALSE)
-de.norm.selected.wide <- dcast(de.norm.selected.long, hgnc_symbol ~ condition, value.var="norm.expression")
-temp <- de.norm.selected.wide[,-1]
-row.names(temp) <- de.norm.selected.wide[,1]
-annotation <- data.frame(Condition = factor(1:9, labels = gsub('.{2}$', '', colnames(temp)) ))
+de.norm.selected.long <-
+  norm.selected.long %>% filter (variable %in% de_names)
+colnames(de.norm.selected.long) <-
+  c("gene", "condition", "norm.expression")
+de.norm.selected.long <- merge(
+  de.norm.selected.long,
+  G_list,
+  by.x = "gene",
+  by.y = "ensembl_gene_id_version",
+  all.x = TRUE,
+  all.y = FALSE
+)
+de.norm.selected.wide <-
+  dcast(de.norm.selected.long, hgnc_symbol ~ condition, value.var = "norm.expression")
+temp <- de.norm.selected.wide[, -1]
+row.names(temp) <- de.norm.selected.wide[, 1]
+annotation <-
+  data.frame(Condition = factor(1:9, labels = gsub('.{2}$', '', colnames(temp))))
 heat_colors <- brewer.pal(9, "YlOrRd")
 rownames(annotation) <- colnames(temp)
-temp <- temp[,c(8,9,5,6,7,2,3,4,1)]
+temp <- temp[, c(8, 9, 5, 6, 7, 2, 3, 4, 1)]
 ```
 visualization
 
 ```{r heatmap2, fig.cap="Fig 4.2: Heatmap comparing the Io amnion genes across various datasets", fig.width=8, fig.height=20}
-g <- pheatmap(as.matrix(temp),
-              color = heat_colors,
-              cluster_cols = F,
-              cluster_rows = F,
-              show_rownames = T,
-              annotation_col = annotation,
-              border_color = NA,
-              fontsize = 11,
-              scale = "row",
-              fontsize_row = 11)
+g <- pheatmap(
+  as.matrix(temp),
+  color = heat_colors,
+  cluster_cols = F,
+  cluster_rows = F,
+  show_rownames = T,
+  annotation_col = annotation,
+  border_color = NA,
+  fontsize = 11,
+  scale = "row",
+  fontsize_row = 11
+)
 g
 ```
+
+## Session Information
 
 ```{r sessioninfo}
 sessionInfo()

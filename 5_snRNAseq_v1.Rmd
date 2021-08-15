@@ -2,11 +2,12 @@
 title: "Section 5: snRNAseq analysis"
 date: "`r Sys.Date()`"
 author:
-  - name: "Arun Seetharam, Ha Vu"
+  - name: Arun Seetharam
+  - name: Ha Vu
     affiliation: Tuteja Lab
     affiliation_url: https://www.tutejalab.org
 output:
-  rmdformats::html_clean:
+  rmdformats::readthedown:
     self_contained: true
     thumbnails: false
     lightbox: true
@@ -15,16 +16,22 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-
+options(max.print = "75")
 knitr::opts_chunk$set(
   echo = TRUE,
   collapse = TRUE,
   comment = "#>",
-  fig.path = "assets/"
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
 )
+knitr::opts_knit$set(width = 75)
 ```
 
-# snRNAseq analysis
+## snRNAseq analysis
 
 This section uses snRNAseq BAP.d8 dataset (Khan et. al.,) and nTE/nCT dataset (Io et. al.,) to run scRNAseq analyses using Seurat. Breifly, the counts data is imported in R as Seurat object, samples are intergrated, transformed and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
 
@@ -32,7 +39,7 @@ This section uses snRNAseq BAP.d8 dataset (Khan et. al.,) and nTE/nCT dataset (I
 
 R packages required for this section are loaded
 
-```{r, warnings=TRUE, message=FALSE}
+```{r package, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
 library(Seurat)
 library(SeuratWrappers)
@@ -125,7 +132,7 @@ metadata <- metadata %>%
   )
 ```
 
-```{r mtplot, fig.cap="FigX: fig legend", fig.width=10, fig.height=12}
+```{r mtplot, fig.cap="Fig 5.1: MT ratio across samples. Cells with higher MT ratio also have less gene counts", fig.width=10, fig.height=12}
 mt <-
   ggplot(dat = metadata, aes(x = nUMI, y = nGene, color = mitoRatio)) +
   geom_point(alpha = 0.5) +
@@ -159,7 +166,7 @@ mt
 ```
 ### Number of nuclei per sample
 
-```{r otherQC1, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+```{r otherQC1, fig.cap="Fig 5.2: Number of cells in each sample", fig.width=8, fig.height=5}
 ncells <- ggplot(metadata, aes(x = seq_folder, fill = seq_folder)) +
   geom_bar() +
   theme_classic() +
@@ -176,7 +183,7 @@ ncells
 
 ### Density of nuclei per sample
 
-```{r otherQC2, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+```{r otherQC2, fig.cap="Fig 5.3: Density of cells across samples transcript counts", fig.width=8, fig.height=5}
 dcells <-
   ggplot(metadata, aes(color = seq_folder, x = nUMI, fill = seq_folder)) +
   geom_density(alpha = 0.2) +
@@ -187,9 +194,9 @@ dcells <-
 dcells
 ```
 
-### Number of Nuclei vs. genes
+### Number of cells vs. genes
 
-```{r otherQC3, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+```{r otherQC3, fig.cap="Fig 5.4: Number of cells vs. total gene coutns", fig.width=8, fig.height=5}
 ngenes <-
   ggplot(metadata, aes(x = seq_folder, y = log10(nGene), fill = seq_folder)) +
   geom_boxplot() +
@@ -204,9 +211,9 @@ ngenes <-
 ngenes
 ```
 
-### Number of Nuclei vs. transcripts
+### Number of cells vs. transcripts
 
-```{r otherQC4, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+```{r otherQC4, fig.cap="Fig 5.5: Number of cells vs. transcripts", fig.width=8, fig.height=5}
 dtranscripts <-
   ggplot(metadata,
          aes(x = log10GenesPerUMI, color = seq_folder, fill = seq_folder)) +
@@ -218,7 +225,7 @@ dtranscripts
 
 ### Mitochondrial density across samples
 
-```{r otherQC5, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+```{r otherQC5, fig.cap="Fig 5.6: Mitochondrial density across samples", fig.width=8, fig.height=5}
 mtratio <-
   ggplot(metadata, aes(color = seq_folder, x = mitoRatio, fill = seq_folder)) +
   geom_density(alpha = 0.2) +
@@ -249,7 +256,7 @@ bapd8.combined[["percent.mt"]] <-
 
 ### Comparing samples QC across Replicates
 
-```{r scRNAseqMetrics1, fig.cap="FigX: fig legend", fig.width=10, fig.height=5}
+```{r scRNAseqMetrics1, fig.cap="Fig 5.7: Comparing gene counts, transcript counts and MT percent across samples", fig.width=10, fig.height=5}
 p <-
   VlnPlot(bapd8.combined, features = "nFeature_RNA", pt.size = 1) +
   geom_hline(yintercept = 200,
@@ -278,7 +285,7 @@ panel_plot
 
 ### Filtering
 
-```{r scRNAseqMetrics2, fig.cap="FigX: fig legend", fig.width=10, fig.height=12}
+```{r scRNAseqMetrics2, fig.cap="Fig 5.8: Scatter plot showing distribution of cells percent MT vs. mRNA counts, and gene counts vs. mRNA counts. A, B before filtering, C, D preliminary filtering, and E, F final cell content in samples used for analyses.", fig.width=10, fig.height=12}
 B1 <-
   FeatureScatter(bapd8.combined, 
                  feature1 = "nCount_RNA", 
@@ -401,13 +408,13 @@ num.clusters
 
 #### Optimization: Cells/Genes defining PCA (4 PCs)
 
-```{r optimization1, fig.cap="FigX: fig legend", fig.width=8, fig.height=12}
+```{r optimization1, fig.cap="Fig 5.9: Genes that define first 4 principal components", fig.width=8, fig.height=12}
 VizDimLoadings(bapd8.integrated, dims = 1:4, reduction = "pca")
 ```
 
 #### Optimization: Determine data dimensionality
 
-```{r optimization2, fig.cap="FigX: fig legend", fig.width=8, fig.height=6}
+```{r optimization2, fig.cap="Fig 5.10: Data Dimensionality. (A) Elbow plot showing the rankings of PC (first 20) in the PCA (B) JackStraw plot showing the distribution of p-values for each PC (first 20 shown) in the PCA", fig.width=8, fig.height=6}
 bapd8.integrated <- JackStraw(bapd8.integrated, num.replicate = 100)
 bapd8.integrated <- ScoreJackStraw(bapd8.integrated, dims = 1:20)
 elbow <- ElbowPlot(bapd8.integrated)
@@ -429,7 +436,7 @@ Idents(bapd8.integrated) <- "new_clusters"
 
 ### Visulaize dimensional reduction
 
-```{r clusterplots, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
+```{r clusterplots, fig.cap="Fig 5.11: Dimensional reduction plot showing cells plotted in two dimensions. (A) colored based on cluster identitiy (B) colored based on sample identity", fig.width=8, fig.height=5}
 A = enhancedDimPlot(
   object = bapd8.integrated,
   grouping_var = 'ident',
@@ -557,7 +564,7 @@ C <- enhancedDimPlot(
 panel_plot <- plot_grid(A, B, ncol = 2, nrow = 1)
 panel_plot
 ```
-```{r clusterplotsreplicate, fig.cap="FigX: fig legend", fig.width=8, fig.height=6}
+```{r clusterplotsreplicate, fig.cap="Fig 5.12: Dimensional reduction plot showing distribution of cells in the cluster across samples", fig.width=8, fig.height=6}
 DimPlot(object = bapd8.integrated,
         split.by = 'orig.ident',
         ncol = 4) +
@@ -568,7 +575,7 @@ DimPlot(object = bapd8.integrated,
 ```
 #### Interactive dimensional reduction plot
 
-```{r clusterplotsInteractive, fig.cap="FigX: fig legend", fig.width=6, fig.height=5}
+```{r clusterplotsInteractive, fig.cap="Fig 5.13: Interactive Dimensional reduction plot cells plotted in two dimensions. The colored dots represent individual cells and are assigned based on cluster identity", fig.width=6, fig.height=5}
 A = enhancedDimPlot(
   object = bapd8.integrated,
   grouping_var = 'ident',
@@ -808,7 +815,7 @@ runpce <- function(inputgenelist, clusternumber, shade) {
 ### Run analyses on each cluster
 
 #### Cluser 1
-```{r cluster1, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster1, fig.cap="Fig 5.14: Cluster 1 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 1, color_list[1])
 count <- mybarplot(Cluster_1, 1)
 violin <- grouped_violinPlots(cluster.marker.names.1, 1)
@@ -827,7 +834,7 @@ panel_plot
 
 #### Cluser 2
 
-```{r cluster2, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster2, fig.cap="Fig 5.15: Cluster 2 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.2, 2, color_list[2])
 count <- mybarplot(Cluster_2, 2)
 violin <- grouped_violinPlots(cluster.marker.names.2, 2)
@@ -846,7 +853,7 @@ panel_plot
 
 #### Cluser 3
 
-```{r cluster3, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster3, fig.cap="Fig 5.16: Cluster 3 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.3, 3, color_list[3])
 count <- mybarplot(Cluster_3, 3)
 violin <- grouped_violinPlots(cluster.marker.names.3, 3)
@@ -864,7 +871,7 @@ panel_plot
 ```
 #### Cluser 4
 
-```{r cluster4, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster4, fig.cap="Fig 5.17: Cluster 4 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.4, 4, color_list[4])
 count <- mybarplot(Cluster_4, 4)
 violin <- grouped_violinPlots(cluster.marker.names.4, 4)
@@ -882,7 +889,7 @@ panel_plot
 ```
 #### Cluser 5
 
-```{r cluster5, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster5, fig.cap="Fig 5.18: Cluster 5 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.5, 5, color_list[5])
 count <- mybarplot(Cluster_5, 5)
 violin <- grouped_violinPlots(cluster.marker.names.5, 5)
@@ -900,7 +907,7 @@ panel_plot
 ```
 #### Cluser 6
 
-```{r cluster6, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster6, fig.cap="Fig 5.19: Cluster 6 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.6, 6, color_list[6])
 count <- mybarplot(Cluster_6, 6)
 violin <- grouped_violinPlots(cluster.marker.names.6, 6)
@@ -918,7 +925,7 @@ panel_plot
 ```
 #### Cluser 7
 
-```{r cluster7, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster7, fig.cap="Fig 5.20: Cluster 7 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.7, 7, color_list[7])
 count <- mybarplot(Cluster_7, 7)
 violin <- grouped_violinPlots(cluster.marker.names.7, 7)
@@ -936,7 +943,7 @@ panel_plot
 ```
 #### Cluser 8
 
-```{r cluster8, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster8, fig.cap="Fig 5.21: Cluster 8 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 8, color_list[8])
 count <- mybarplot(Cluster_8, 8)
 violin <- grouped_violinPlots(cluster.marker.names.8, 8)
@@ -954,7 +961,7 @@ panel_plot
 ```
 #### Cluser 9
 
-```{r cluster9, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster9, fig.cap="Fig 5.22: Cluster 9 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 9, color_list[9])
 count <- mybarplot(Cluster_9, 9)
 violin <- grouped_violinPlots(cluster.marker.names.9, 9)
@@ -972,7 +979,7 @@ panel_plot
 ```
 #### Cluser 10
 
-```{r cluster10, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster10, fig.cap="Fig 5.23: Cluster 10 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 10, color_list[10])
 count <- mybarplot(Cluster_10, 10)
 violin <- grouped_violinPlots(cluster.marker.names.10, 10)
@@ -990,7 +997,7 @@ panel_plot
 ```
 #### Cluser 11
 
-```{r cluster11, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster11, fig.cap="Fig 5.24: Cluster 11 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 11, color_list[11])
 count <- mybarplot(Cluster_11, 11)
 violin <- grouped_violinPlots(cluster.marker.names.11, 11)
@@ -1008,7 +1015,7 @@ panel_plot
 ```
 #### Cluser 12
 
-```{r cluster12, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster12, fig.cap="Fig 5.25: Cluster 12 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 12, color_list[12])
 count <- mybarplot(Cluster_12, 12)
 violin <- grouped_violinPlots(cluster.marker.names.12, 12)
@@ -1026,7 +1033,7 @@ panel_plot
 ```
 #### Cluser 13
 
-```{r cluster13, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
+```{r cluster13, fig.cap="Fig 5.26: Cluster 13 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 13, color_list[13])
 count <- mybarplot(Cluster_13, 13)
 violin <- grouped_violinPlots(cluster.marker.names.13, 13)
@@ -1084,16 +1091,23 @@ getSTB <- function(inputgenelist) {
 
 #### Prepare the dataset.
 
-```{r heatmapInputPrep, warnings=TRUE, message=FALSE}
+```{r heatmapInputPrep1, warnings=TRUE, message=FALSE}
 STB.clus.6.all <- getSTB(cluster.marker.names.6)
 STB.clus.8.all <- getSTB(cluster.marker.names.8)
-STB.clus.6.n.8 <- unique(c(clus8.STB, clus6.STB))
-STB.clus.6.exl <- setdiff(clus6.STB, clus8.STB)
-STB.clus.8.exl <- setdiff(clus8.STB, clus6.STB)
+STB.clus.6.n.8 <- unique(c(STB.clus.8.all, STB.clus.6.all))
+STB.clus.6.exl <- setdiff(STB.clus.6.all, STB.clus.8.all)
+STB.clus.8.exl <- setdiff(STB.clus.8.all, STB.clus.6.all)
 link <-
   "ftp://ftp.ncbi.nlm.nih.gov/geo/series/GSE109nnn/GSE109555/suppl/GSE109555_All_Embryo_TPM.txt.gz"
 download.file(link, "GSE109555_All_Embryo_TPM.txt.gz")
 gunzip("GSE109555_All_Embryo_TPM.txt.gz")
+```
+File needs editing to add a column header
+```{bash, engine="sh"}
+sed -i 's/^D8_IVC2_E2_B1_1/genes\tD8_IVC2_E2_B1_1/g' GSE109555_All_Embryo_TPM.txt
+```
+Read data
+```{r heatmapInputPrep3, warnings=TRUE, message=FALSE}
 cts <-
   as.matrix(read.csv(
     "GSE109555_All_Embryo_TPM.txt",
@@ -1110,11 +1124,11 @@ df$days[which(str_detect(df$cells, "D8"))] <- "D8"
 df$days[which(str_detect(df$cells, "D6"))] <- "D6"
 df$days <- as.factor(df$days)
 df <- df %>% remove_rownames %>% column_to_rownames(var = "cells")
-STB.clus.6.all.cts <- cts[rownames(cts) %in% STB.clus.6.all, ]
-STB.clus.8.all.cts <- cts[rownames(cts) %in% STB.clus.8.all, ]
-STB.clus.6.n.8.cts <- cts[rownames(cts) %in% STB.clus.6.n.8, ]
-STB.clus.6.exl.cts <- cts[rownames(cts) %in% STB.clus.6.exl, ]
-STB.clus.8.exl.cts <- cts[rownames(cts) %in% STB.clus.8.exl, ]
+STB.clus.6.all.cts <- cts[rownames(cts) %in% STB.clus.6.all,]
+STB.clus.8.all.cts <- cts[rownames(cts) %in% STB.clus.8.all,]
+STB.clus.6.n.8.cts <- cts[rownames(cts) %in% STB.clus.6.n.8,]
+STB.clus.6.exl.cts <- cts[rownames(cts) %in% STB.clus.6.exl,]
+STB.clus.8.exl.cts <- cts[rownames(cts) %in% STB.clus.8.exl,]
 heat_colors <- brewer.pal(9, "YlOrRd")
 ```
 
@@ -1136,7 +1150,7 @@ mydatahm <- function(mycts, name) {
     ))
   ordered <- ordered[c("D6", "D8", "D10", "D12", "D14")]
   hmap <- as.matrix(ordered)
-pheatmap(
+  pheatmap(
     hmap,
     color = heat_colors,
     cluster_rows = F,
@@ -1151,15 +1165,16 @@ pheatmap(
 ```
 
 #### Cluster 6 only STB Heatmap
-```{r heatmap1, fig.cap="FigX: fig legend", fig.width=4, fig.height=6}
+```{r heatmap1, fig.cap="Fig 5.27: Heatmap of STB genes present only in cluster 6", fig.width=4, fig.height=6}
 mydatahm(STB.clus.6.exl.cts, "Cluster 6 only STB genes")
 ```
 #### Cluster 8 only STB Heatmap
 
-```{r heatmap2, fig.cap="FigX: fig legend", fig.width=4, fig.height=6}
+```{r heatmap2, fig.cap="Fig 5.28: Heatmap of STB genes present only in cluster 8", fig.width=4, fig.height=6}
 mydatahm(STB.clus.8.exl.cts, "Cluster 8 only STB genes")
 ```
 
+## Session Information
 
 ```{r sessioninfo}
 sessionInfo()
