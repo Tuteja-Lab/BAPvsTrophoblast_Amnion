@@ -24,13 +24,13 @@ knitr::opts_chunk$set(
 )
 ```
 
-# snRNAseq analyses
+# snRNAseq analysis
 
-
+This section uses snRNAseq BAP.d8 dataset (Khan et. al.,) and nTE/nCT dataset (Io et. al.,) to run scRNAseq analyses using Seurat. Breifly, the counts data is imported in R as Seurat object, samples are intergrated, transformed and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
 
 ## Prerequisites
 
-Packages required for this analyses are loaded as follows:
+R packages required for this section are loaded
 
 ```{r, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -63,7 +63,9 @@ library(R.utils)
 
 ## Import datasets
 
-The `counts` data and its associated metadata (`coldata`) are imported for analyses
+The 10X data was already processed with `CellRanger` (v.4.0.0) and the counts table was ready for us to import for the data analyses.
+We used the inbuilt function to import this data and to create a `Seurat` object as described below.
+
 
 ```{r dataset, warnings=TRUE, message=FALSE}
 experiment_name = "BAP"
@@ -98,7 +100,12 @@ bapd8.combined <- CreateSeuratObject(
   names.delim = "\\-"
 )
 ```
+## Data quality insepction
 
+After the data was imported, we checked the quality of the data. Mitochondrial expression is an important criteria (along with other quantitative features of each nuclei) to decide if the nucleus is good or bad. We tested it as follows
+
+
+### MT ratio in nucleus
 
 ```{r metadataStats, warnings=TRUE, message=FALSE}
 bapd8.temp <- bapd8.combined
@@ -117,7 +124,6 @@ metadata <- metadata %>%
     seq_folder = orig.ident
   )
 ```
-
 
 ```{r mtplot, fig.cap="FigX: fig legend", fig.width=10, fig.height=12}
 mt <-
@@ -151,6 +157,7 @@ mt <-
   scale_x_continuous(label = comma)
 mt
 ```
+### Number of nuclei per sample
 
 ```{r otherQC1, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
 ncells <- ggplot(metadata, aes(x = seq_folder, fill = seq_folder)) +
@@ -167,7 +174,7 @@ ncells
 ```
 
 
-# density of cells per sample
+### Density of nuclei per sample
 
 ```{r otherQC2, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
 dcells <-
@@ -179,6 +186,9 @@ dcells <-
   geom_vline(xintercept = 500)
 dcells
 ```
+
+### Number of Nuclei vs. genes
+
 ```{r otherQC3, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
 ngenes <-
   ggplot(metadata, aes(x = seq_folder, y = log10(nGene), fill = seq_folder)) +
@@ -193,8 +203,10 @@ ngenes <-
   ggtitle("NCells vs NGenes")
 ngenes
 ```
+
+### Number of Nuclei vs. transcripts
+
 ```{r otherQC4, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
-# transcritps
 dtranscripts <-
   ggplot(metadata,
          aes(x = log10GenesPerUMI, color = seq_folder, fill = seq_folder)) +
@@ -202,8 +214,10 @@ dtranscripts <-
   theme_classic() +
   geom_vline(xintercept = 0.8)
 dtranscripts
-# mito ratio
 ```
+
+### Mitochondrial density across samples
+
 ```{r otherQC5, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
 mtratio <-
   ggplot(metadata, aes(color = seq_folder, x = mitoRatio, fill = seq_folder)) +
@@ -213,6 +227,12 @@ mtratio <-
   geom_vline(xintercept = 0.2)
 mtratio
 ```
+
+## Data filtering
+
+After inspection, we decided to remove all mitochondiral genes as well as ribosomal genes from our analyses.
+
+### set up the metadata file and organize
 
 ```{r metadata2, warnings=TRUE, message=FALSE}
 bapd8.combined <- bapd8.temp
@@ -227,6 +247,7 @@ bapd8.combined[["percent.mt"]] <-
   PercentageFeatureSet(bapd8.combined, pattern = "^MT-")
 ```
 
+### Comparing samples QC across Replicates
 
 ```{r scRNAseqMetrics1, fig.cap="FigX: fig legend", fig.width=10, fig.height=5}
 p <-
@@ -254,6 +275,9 @@ panel_plot <-
             nrow = 1)
 panel_plot
 ```
+
+### Filtering
+
 ```{r scRNAseqMetrics2, fig.cap="FigX: fig legend", fig.width=10, fig.height=12}
 B1 <-
   FeatureScatter(bapd8.combined, 
@@ -303,8 +327,8 @@ panel_plot <-
     nrow = 3
   )
 panel_plot
-
 ```
+### Removing ribosomal and MT proteins
 
 ```{r cleanData, warnings=TRUE, message=FALSE}
 counts <- GetAssayData(object = bapd8.combined, slot = "counts")
@@ -339,6 +363,14 @@ bapd8.fcombined <-
 bapd8.fcombined@meta.data <- bapd8.fcombined@meta.data[1:4]
 bapd8.combined <- bapd8.fcombined
 ```
+## Data integration and Clustering
+
+`Seurat` package was used for integrating samples and running the snRNAseq analyses.
+
+
+### data integration/clustering
+
+(see optimization section below)
 
 ```{r seurat, warnings=TRUE, message=FALSE}
 bapd8.list <- SplitObject(bapd8.combined, split.by = "orig.ident")
@@ -366,9 +398,14 @@ bapd8.integrated <- FindClusters(bapd8.integrated, resolution = 0.5)
 num.clusters <- nlevels(bapd8.integrated$seurat_clusters)
 num.clusters
 ```
+
+#### Optimization: Cells/Genes defining PCA (4 PCs)
+
 ```{r optimization1, fig.cap="FigX: fig legend", fig.width=8, fig.height=12}
 VizDimLoadings(bapd8.integrated, dims = 1:4, reduction = "pca")
 ```
+
+#### Optimization: Determine data dimensionality
 
 ```{r optimization2, fig.cap="FigX: fig legend", fig.width=8, fig.height=6}
 bapd8.integrated <- JackStraw(bapd8.integrated, num.replicate = 100)
@@ -379,6 +416,9 @@ panel_plot <- plot_grid(elbow, jack, labels = c('A', 'B'), ncol = 2)
 panel_plot
 ```
 
+### Renumber the clusters
+
+By default the clusters are numbers 0-12, we need them as 1-13.
 
 ```{r renumber, warnings=TRUE, message=FALSE}
 df <- bapd8.integrated@meta.data
@@ -387,7 +427,7 @@ bapd8.integrated@meta.data <- df
 Idents(bapd8.integrated) <- "new_clusters"
 ```
 
-
+### Visulaize dimensional reduction
 
 ```{r clusterplots, fig.cap="FigX: fig legend", fig.width=8, fig.height=5}
 A = enhancedDimPlot(
@@ -526,6 +566,7 @@ DimPlot(object = bapd8.integrated,
   theme_classic() +
   theme(legend.position = "none")
 ```
+#### Interactive dimensional reduction plot
 
 ```{r clusterplotsInteractive, fig.cap="FigX: fig legend", fig.width=6, fig.height=5}
 A = enhancedDimPlot(
@@ -543,6 +584,10 @@ A = enhancedDimPlot(
 ggplotly(A)
 ```
 
+### Finding cluster markers
+
+Cluster markers are defined as FC of >= 1 and p-value (adj) <= 0.05.
+We will find all markers of for each cluster with a loop.
 
 ```{r markers, warnings=TRUE, message=FALSE}
 DefaultAssay(bapd8.integrated) <- "RNA"
@@ -560,6 +605,7 @@ for (i in 1:num.clusters) {
   })
 }
 ```
+### Cluster cell type composition
 
 ```{r barplotData, warnings=TRUE, message=FALSE}
 fullCounts <- tibble(
@@ -577,6 +623,7 @@ fullCounts <- fullCounts %>%
   mutate(percent = (n * 100) / cell_type_sum)
 list2env(split(fullCounts, fullCounts$cluster), envir = .GlobalEnv)
 ```
+### Bar plot function
 
 ```{r barplotFunc, warnings=TRUE, message=FALSE}
 mybarplot <- function(pdata, i) {
@@ -648,9 +695,11 @@ mybarplot <- function(pdata, i) {
 }
 ``` 
 
+### Define Colors
+
+define colors for each cluster so that they are standardized.
 
 ```{r colorAssign, warnings=TRUE, message=FALSE}
-# colors for each clusters defined
 ggplotColours <- function(n = 6, h = c(0, 360) + 15) {
   if ((diff(h) %% 360) < 1)
     h[2] <- h[2] - 360 / n
@@ -658,6 +707,8 @@ ggplotColours <- function(n = 6, h = c(0, 360) + 15) {
 }
 color_list <- ggplotColours(n = 13)
 ```
+
+### Violin plot function
 
 ```{r gVioFunction, warnings=TRUE, message=FALSE}
 grouped_violinPlots <-
@@ -693,6 +744,9 @@ grouped_violinPlots <-
     )
   }
 ```
+### PCE plot function
+
+Load the PCE data
 
 ```{r pceData, warnings=TRUE, message=FALSE} 
 l <-
@@ -702,6 +756,8 @@ d <- dataset$PlacentaDeciduaBloodData
 data <- d$expressionData
 cellDetails <- d$cellDetails
 ```
+
+Function for running/plotting the PCE
 
 ```{r pceFunction, warnings=TRUE, message=FALSE} 
 runpce <- function(inputgenelist, clusternumber, shade) {
@@ -749,7 +805,9 @@ runpce <- function(inputgenelist, clusternumber, shade) {
     scale_y_continuous(expand = expansion(mult = c(0, .1)))
 }
 ```
+### Run analyses on each cluster
 
+#### Cluser 1
 ```{r cluster1, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 1, color_list[1])
 count <- mybarplot(Cluster_1, 1)
@@ -767,6 +825,8 @@ panel_plot <-
 panel_plot
 ```
 
+#### Cluser 2
+
 ```{r cluster2, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.2, 2, color_list[2])
 count <- mybarplot(Cluster_2, 2)
@@ -783,6 +843,9 @@ panel_plot <-
   )
 panel_plot
 ```
+
+#### Cluser 3
+
 ```{r cluster3, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.3, 3, color_list[3])
 count <- mybarplot(Cluster_3, 3)
@@ -799,6 +862,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 4
+
 ```{r cluster4, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.4, 4, color_list[4])
 count <- mybarplot(Cluster_4, 4)
@@ -815,6 +880,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 5
+
 ```{r cluster5, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.5, 5, color_list[5])
 count <- mybarplot(Cluster_5, 5)
@@ -831,6 +898,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 6
+
 ```{r cluster6, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.6, 6, color_list[6])
 count <- mybarplot(Cluster_6, 6)
@@ -847,6 +916,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 7
+
 ```{r cluster7, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.7, 7, color_list[7])
 count <- mybarplot(Cluster_7, 7)
@@ -863,6 +934,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 8
+
 ```{r cluster8, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 8, color_list[8])
 count <- mybarplot(Cluster_8, 8)
@@ -879,6 +952,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 9
+
 ```{r cluster9, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 9, color_list[9])
 count <- mybarplot(Cluster_9, 9)
@@ -895,6 +970,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 10
+
 ```{r cluster10, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 10, color_list[10])
 count <- mybarplot(Cluster_10, 10)
@@ -911,6 +988,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 11
+
 ```{r cluster11, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 11, color_list[11])
 count <- mybarplot(Cluster_11, 11)
@@ -927,6 +1006,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 12
+
 ```{r cluster12, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 12, color_list[12])
 count <- mybarplot(Cluster_12, 12)
@@ -943,6 +1024,8 @@ panel_plot <-
   )
 panel_plot
 ```
+#### Cluser 13
+
 ```{r cluster13, fig.cap="FigX: fig legend", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 13, color_list[13])
 count <- mybarplot(Cluster_13, 13)
@@ -959,6 +1042,12 @@ panel_plot <-
   )
 panel_plot
 ```
+
+### Comparing STB genes 
+
+STB was enriched in cluster 6 and Cluster 8. We will see the expression of the genes in Zohou et. al., dataset.
+
+#### PCE function to extract STB genes
 
 ```{r pceFunction2, warnings=TRUE, message=FALSE} 
 getSTB <- function(inputgenelist) {
@@ -992,6 +1081,9 @@ getSTB <- function(inputgenelist) {
   return(sct.genes)
 }
 ```
+
+#### Prepare the dataset.
+
 ```{r heatmapInputPrep, warnings=TRUE, message=FALSE}
 STB.clus.6.all <- getSTB(cluster.marker.names.6)
 STB.clus.8.all <- getSTB(cluster.marker.names.8)
@@ -1026,6 +1118,8 @@ STB.clus.8.exl.cts <- cts[rownames(cts) %in% STB.clus.8.exl, ]
 heat_colors <- brewer.pal(9, "YlOrRd")
 ```
 
+#### Heatmap function
+
 ```{r heatmapFunc, warnings=TRUE, message=FALSE}
 mydatahm <- function(mycts, name) {
   mycts.t <- as.data.frame(t(mycts))
@@ -1056,13 +1150,14 @@ pheatmap(
 }
 ```
 
-
+#### Cluster 6 only STB Heatmap
 ```{r heatmap1, fig.cap="FigX: fig legend", fig.width=4, fig.height=6}
 mydatahm(STB.clus.6.exl.cts, "Cluster 6 only STB genes")
 ```
+#### Cluster 8 only STB Heatmap
 
 ```{r heatmap2, fig.cap="FigX: fig legend", fig.width=4, fig.height=6}
-mydatahm(STB.clus.8.exl.cts, "Cluster 6 only STB genes")
+mydatahm(STB.clus.8.exl.cts, "Cluster 8 only STB genes")
 ```
 
 
