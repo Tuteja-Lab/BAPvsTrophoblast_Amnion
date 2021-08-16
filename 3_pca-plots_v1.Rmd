@@ -1,0 +1,223 @@
+---
+title: "Section 3: PCA plots"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+  - name: Ha Vu
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+
+This section uses the counts data (all datasets) generated in Section 1 for cluseter analyses. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, `vst` transformation and clustering is performed using `DESeq2`, and results visualized as PCA plots.
+
+# PCA plot for all libraries
+
+## Prerequisites
+
+R packages required for this section are loaded
+
+```{r, warnings=TRUE, message=FALSE}
+setwd("~/github/amnion.vs.other_RNASeq")
+library(sva)
+library(tidyverse)
+library(DESeq2)
+library(vsn)
+library(pheatmap)
+library(ggrepel)
+library(RColorBrewer)
+library(plotly)
+```
+
+
+
+## Import datasets
+
+The `counts` data and its associated metadata (`coldata`) are imported for analyses
+
+```{r dataset, warnings=TRUE, message=FALSE}
+counts = 'assets/new-counts.tsv'
+groupFile = 'assets/new-batch.v2.tsv'
+coldata <-
+  read.csv(
+    groupFile,
+    row.names = 1,
+    sep = "\t",
+    stringsAsFactors = TRUE
+  )
+cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
+```
+
+inspect the `coldata`
+
+```{r coldata}
+DT::datatable(coldata)
+```
+
+reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
+
+```{r order, warnings=TRUE, message=FALSE}
+colnames(cts)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+## Batch correction
+
+Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
+
+```{r batchcorrect, warnings=TRUE, message=TRUE}
+cov1 <- as.factor(coldata$authors)
+adjusted_counts <- ComBat_seq(cts, batch = cov1, group = NULL)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+## run DESeq2
+
+The batch corrected read counts are then used for running DESeq2 analyses
+
+```{r deseq2, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
+                              colData = coldata,
+                              design = ~ group)
+```
+transformation
+
+```{r vst, warnings=TRUE, message=FALSE}
+vsd <- vst(dds, blind = FALSE)
+pcaData <-
+  plotPCA(vsd,
+          intgroup = c("group", "authors"),
+          returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+```
+
+## PCA plot (all)
+
+PCA plot for the dataset that includes all libraries.
+
+```{r pcaplot, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+ggplotly(
+  ggplot(pcaData, aes(
+    PC1, PC2, color = group.1, shape = authors
+  )) +
+    scale_shape_manual(values = 1:8) +
+    theme_bw() +
+    theme(legend.title = element_blank(), legend.position = "none") +
+    geom_point(size = 1, stroke = 1) +
+    xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+    ylab(paste0("PC2: ", percentVar[2], "% variance"))
+)
+```
+
+# PCA plot for differenticated cell libraries
+
+## Import datasets
+
+The `counts` data and its associated metadata (`coldata`) are imported for analyses
+
+```{r import2, warnings=TRUE, message=FALSE}
+setwd("~/github/amnion.vs.other_RNASeq")
+counts2 = 'assets/counts-dotted.tsv'
+groupFile = 'assets/batch-dotted.v2.tsv'
+coldata2 <-
+  read.csv(
+    groupFile,
+    row.names = 1,
+    sep = "\t",
+    stringsAsFactors = TRUE
+  )
+cts2 <- as.matrix(read.csv(counts2, sep = "\t", row.names = "gene.ids"))
+```
+
+inspect the `coldata`
+
+```{r coldata2}
+DT::datatable(coldata2)
+```
+
+
+reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
+```{r order2}
+all(rownames(coldata2) %in% colnames(cts2))
+cts2 <- cts2[, rownames(coldata2)]
+```
+
+## Batch correction
+
+Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
+
+```{r batchcorrect2, warnings=TRUE, message=TRUE}
+cov1 <- as.factor(coldata2$authors)
+adjusted_counts <- ComBat_seq(cts2, batch = cov1, group = NULL)
+all(rownames(coldata2) %in% colnames(cts2))
+cts2 <- cts2[, rownames(coldata2)]
+```
+## run DESeq2
+
+The batch corrected read counts are then used for running DESeq2 analyses
+
+```{r deseq2b, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
+                              colData = coldata2,
+                              design = ~ group)
+```
+
+transformation
+
+```{r vst2, warnings=TRUE, message=FALSE}
+vsd <- vst(dds, blind = FALSE)
+pcaData <-
+  plotPCA(vsd,
+          intgroup = c("group", "authors"),
+          returnData = TRUE)
+percentVar <- round(100 * attr(pcaData, "percentVar"))
+```
+
+## PCA plot (differenticated)
+
+```{r PCAplotDiffer, fig.cap="Fig 3.2: PCA plots (differenticated)", fig.width=8, fig.height=8}
+ggplotly(
+  ggplot(pcaData, aes(
+    PC1, PC2, color = group.1, shape = authors
+  )) +
+    scale_shape_manual(values = 1:8) +
+    theme_bw() +
+    theme(legend.title = element_blank(), legend.position = "none") +
+    geom_point(size = 1, stroke = 1) +
+    xlab(paste0("PC1: ", percentVar[1], "% variance")) +
+    ylab(paste0("PC2: ", percentVar[2], "% variance"))
+)
+```
+
+# Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```
+
+
+

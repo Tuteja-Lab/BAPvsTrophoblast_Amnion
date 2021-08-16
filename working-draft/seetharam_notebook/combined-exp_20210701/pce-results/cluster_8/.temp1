@@ -1,0 +1,33 @@
+CellType	Log10PValue	Tissue.Specific.Genes	fold.change	Tissue
+SCT	61.7372426620791	60	21.5328054298643	Syncytiotrophoblast
+EVT	12.1178789729452	18	10.9817307692308	Extravillous trophoblast
+VCT	7.58936884373295	14	8.00751201923077	Villous cytotrophoblast
+dS3	3.99006548729361	9	6.33561390532544	Stromal cells Cluster 3
+dS2	3.32689853318907	7	6.83307692307692	Stromal cells Cluster 2
+dM3	2.17424922788069	5	6.20436766623207	Decidual macrophages Cluster 3
+dM1	1.85709747635994	5	5.08413461538462	Decidual macrophages Cluster 1
+HB	1.76507907289264	5	4.69304733727811	Hofbauer cells
+Endo..m.	1.59370715189368	6	3.54249379652606	Endothelial cells (Maternal)
+Endo.L	0.950603596005511	4	3.21808960270499	Endothelial cells (L)
+fFB1	0.950603596005511	5	2.57787107258938	Fetal Fibroblasts Cluster 1
+dP1	0.950603596005511	4	3.08259109311741	Decidua Perivascular cells Cluster 1
+Epi1	0.950603596005511	4	2.98822605965463	Epithelial glandular cells Cluster 1
+Epi2	0.919528439626597	5	2.47336278586279	Epithelial glandular cells Cluster 2
+Endo..f.	0.725208003380048	4	2.38086303939963	Endothelial cells (Fetal)
+dS1	0.52581940859843	2	2.92846153846154	Stromal cells Cluster 1
+MO	0.387491489383281	2	2.28786057692308	Macrophages
+NK.CD16.	0.350508906457267	1	3.48626373626374	Blood Natural Killer Cells CD16-
+dM2	0.313516653270846	2	1.80769230769231	Decidual macrophages Cluster 2
+fFB2	0.313516653270846	3	1.59155518394649	Fetal Fibroblasts Cluster 2
+Granulocytes	0.287793172994178	1	2.44038461538462	Granulocytes
+dP2	0.206459576991587	1	1.74313186813187	Decidua Perivascular cells Cluster 2
+dNK2	0.206459576991587	1	1.7025939177102	Decidual natural killer Cluster 2
+dNK3	0.155187056172578	1	1.35576923076923	Decidual natural killer Cluster 3
+NK.CD16..1	0.155161757685115	1	1.22019230769231	Blood Natural Killer Cells CD16+
+dNK1	0.155161757685115	1	1.20018915510719	Decidual natural killer Cluster 1
+dNK.p	0.150105793580288	1	1.10926573426573	Decidual natural killer proliferative
+Plasma	0	0	0	Plasma
+Tcells	0	0	0	T cells
+DC1	0	0	0	Dendritic cells Cluster 1
+DC2	0	0	0	Dendritic cells Cluster 2
+ILC3	0	0	0	Innate lymphocyte cells 3

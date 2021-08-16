@@ -1,0 +1,2 @@
+"tegenes"
+"Epi1","CLDN10;ASRGL1;RIMKLB;S100A13"
