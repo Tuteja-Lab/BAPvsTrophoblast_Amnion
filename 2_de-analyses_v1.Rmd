@@ -2,12 +2,11 @@
 title: "Section 2: DESeq2 analysis"
 date: "`r Sys.Date()`"
 author:
-  - name: Arun Seetharam
-  - name: Ha Vu
+  - name: "Arun Seetharam, Ha Vu"
     affiliation: Tuteja Lab
     affiliation_url: https://www.tutejalab.org
 output:
-  rmdformats::readthedown:
+  rmdformats::html_clean:
     self_contained: true
     thumbnails: false
     lightbox: true
@@ -16,19 +15,13 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-options(max.print = "75")
+
 knitr::opts_chunk$set(
   echo = TRUE,
   collapse = TRUE,
   comment = "#>",
-  fig.path = "assets/",
-  fig.width = 8,
-  prompt = FALSE,
-  tidy = FALSE,
-  message = FALSE,
-  warning = TRUE
+  fig.path = "assets/"
 )
-knitr::opts_knit$set(width = 75)
 ```
 
 ## DESeq2 analyses steps
@@ -67,14 +60,8 @@ The `counts` data and its associated metadata (`coldata`) are imported for analy
 ```{r dataset, warnings=TRUE, message=FALSE}
 counts = '~/github/amnion.vs.other_RNASeq/assets/counts-subset-v4.txt'
 groupFile = '~/github/amnion.vs.other_RNASeq/assets/batch-subset-v4.txt'
-coldata <-
-  read.csv(
-    groupFile,
-    row.names = 1,
-    sep = "\t",
-    stringsAsFactors = TRUE
-  )
-cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
+coldata <- read.csv(groupFile, row.names=1, sep="\t", stringsAsFactors = TRUE)
+cts <- as.matrix(read.csv(counts,sep="\t",row.names="gene.ids"))
 ```
 
 inspect the `coldata`
@@ -97,12 +84,12 @@ Using combat seq (SVA package) run batch correction - using bioproject ids as va
 
 ```{r batchcorrect, warnings=TRUE, message=FALSE}
 cov1 <- as.factor(coldata$BioProject)
-adjusted_counts <- ComBat_seq(cts, batch = cov1, group = NULL)
+adjusted_counts <- ComBat_seq(cts, batch=cov1, group=NULL)
 all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## DESeq2
+## run DESeq2
 
 The batch corrected read counts are then used for running DESeq2 analyses
 
@@ -110,9 +97,9 @@ The batch corrected read counts are then used for running DESeq2 analyses
 dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               colData = coldata,
                               design = ~ condition)
-vsd <- vst(dds, blind = FALSE)
+vsd <- vst(dds, blind=FALSE)
 keep <- rowSums(counts(dds)) >= 10
-dds <- dds[keep, ]
+dds <- dds[keep,]
 dds <- DESeq(dds)
 dds
 ```
@@ -120,83 +107,56 @@ dds
 Various contrasts are setup as follows (a total of 9 combinations)
 
 ```{r cotnrasts, warnings=TRUE, message=FALSE}
-res.nCTvsBAP <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nCT_P10.Naive_H9_hESCs",
-                          "pBAP_D3.Primed_H9_hESCs"
-                        ))
-res.nTEvsSTB <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nTE_D3.Naive_H9_hESCs",
-                          "hESC_H1_STB_gt70um_D8_BAP"
-                        ))
-res.nCTvsSTB <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nCT_P10.Naive_H9_hESCs",
-                          "hESC_H1_STB_gt70um_D8_BAP"))
-res.nTEvsBAP <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nTE_D3.Naive_H9_hESCs",
-                          "pBAP_D3.Primed_H9_hESCs"
-                        ))
-res.nTEvsL40 <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nTE_D3.Naive_H9_hESCs",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                        ))
-res.nCTvsL40 <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nCT_P10.Naive_H9_hESCs",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                          ))
-res.BAPvsL40 <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "pBAP_D3.Primed_H9_hESCs",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                          ))
-res.BAPvsSTB <- results(dds, 
-                        contrast=c(
-                          "condition",
-                          "pBAP_D3.Primed_H9_hESCs",
-                          "hESC_H1_STB_gt70um_D8_BAP"
-                          ))
-res.STBvsL40 <- results(dds,
-                        contrast=c(
-                          "condition",
-                          "hESC_H1_STB_gt70um_D8_BAP",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                          ))
+res.nCTvsBAP <- results(dds, contrast=c("condition",
+                                        "nCT_P10.Naive_H9_hESCs",
+                                        "pBAP_D3.Primed_H9_hESCs"))
+res.nTEvsSTB <- results(dds, contrast=c("condition",
+                                        "nTE_D3.Naive_H9_hESCs",
+                                        "hESC_H1_STB_gt70um_D8_BAP"))
+res.nCTvsSTB <- results(dds, contrast=c("condition",
+                                        "nCT_P10.Naive_H9_hESCs",
+                                        "hESC_H1_STB_gt70um_D8_BAP"))
+res.nTEvsBAP <- results(dds, contrast=c("condition",
+                                        "nTE_D3.Naive_H9_hESCs",
+                                        "pBAP_D3.Primed_H9_hESCs"))
+res.nTEvsL40 <- results(dds, contrast=c("condition",
+                                        "nTE_D3.Naive_H9_hESCs",
+                                        "hESC_H1_STB_lt40um_D8_BAP"))
+res.nCTvsL40 <- results(dds, contrast=c("condition",
+                                        "nCT_P10.Naive_H9_hESCs",
+                                        "hESC_H1_STB_lt40um_D8_BAP"))
+res.BAPvsL40 <- results(dds, contrast=c("condition",
+                                        "pBAP_D3.Primed_H9_hESCs",
+                                        "hESC_H1_STB_lt40um_D8_BAP"))
+res.BAPvsSTB <- results(dds, contrast=c("condition",
+                                        "pBAP_D3.Primed_H9_hESCs",
+                                        "hESC_H1_STB_gt70um_D8_BAP"))
+res.STBvsL40 <- results(dds, contrast=c("condition",
+                                        "hESC_H1_STB_gt70um_D8_BAP",
+                                        "hESC_H1_STB_lt40um_D8_BAP"))
 ```
 
 Using a function we will save results as well as generate variable to hold the gene lists for running PCE later-on.
 
 ```{r deseq2funx, warnings=TRUE, message=FALSE}
 processDE <- function(restable, fileName) {
-  restable <- restable[order(restable$padj),]
-  outTable <- merge(as.data.frame(restable),
-                    as.data.frame(counts(dds, normalized = TRUE)),
-                    by = "row.names",
-                    sort = FALSE)
+  restable <- restable[order(restable$padj), ]
+  outTable <- merge(as.data.frame(restable), 
+                    as.data.frame(counts(dds, normalized=TRUE)), 
+                    by="row.names", sort=FALSE)
   names(outTable)[1] <- "Gene"
-  newName = paste0("assets/DESeq2results-", fileName, "_fc.tsv")
-  write_delim(outTable, file = newName, delim = "\t")
+  newName=paste0("assets/DESeq2results-", fileName, "_fc.tsv")
+  write_delim(outTable, file=newName, delim = "\t")
   upName <- paste0(fileName, ".up")
-  upName <- outTable %>% filter(log2FoldChange >= 1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
-    dplyr::select(Gene)
+  upName <-outTable %>% filter(log2FoldChange >= 1) %>%
+  filter(padj <= 0.05) %>%
+  arrange(desc(log2FoldChange)) %>%
+  dplyr::select(Gene)
   downName <- paste0(fileName, ".donw")
-  downName <- outTable %>% filter(log2FoldChange <= 1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
-    dplyr::select(Gene)
+  downName <-outTable %>% filter(log2FoldChange <= 1) %>%
+  filter(padj <= 0.05) %>%
+  arrange(desc(log2FoldChange)) %>%
+  dplyr::select(Gene)
 }
 ```
 
@@ -215,51 +175,49 @@ processDE(res.BAPvsSTB, "BAPvsSTB")
 ```
 
 
-## Creating gene-lists
+## GeneLists for PCE
 
 The gene-lists have ensembl gene-id-version. We need them in just gene-id. We also need other metadata later for these lists.
 From ensembl we will download metadata and attach to these lists.
 
 ```{r annotations, warnings=TRUE, message=FALSE}
-ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+ensembl=useMart("ENSEMBL_MART_ENSEMBL")
 listDatasets(ensembl) %>%
   filter(str_detect(description, "Human"))
-ensembl = useDataset("hsapiens_gene_ensembl", mart = ensembl)
+ensembl = useDataset("hsapiens_gene_ensembl", mart=ensembl)
 listFilters(ensembl) %>%
   filter(str_detect(name, "ensembl"))
 filterType <- "ensembl_gene_id_version"
 filterValues <- rownames(cts)
 listAttributes(ensembl) %>%
   head(20)
-attributeNames <- c('ensembl_gene_id_version',
-                    'ensembl_gene_id',
+attributeNames <- c('ensembl_gene_id_version', 
+                    'ensembl_gene_id', 
                     'external_gene_name')
-annot <- getBM(
-  attributes = attributeNames,
-  filters = filterType,
-  values = filterValues,
-  mart = ensembl
-)
+annot <- getBM(attributes=attributeNames,
+               filters = filterType,
+               values = filterValues,
+               mart = ensembl)
+# remove duplicates, if any
 isDup <- duplicated(annot$ensembl_gene_id)
 dup <- annot$ensembl_gene_id[isDup]
-annot <- annot[!annot$ensembl_gene_id %in% dup, ]
+annot <- annot[!annot$ensembl_gene_id%in%dup,]
 ```
 
 We will create separate lists for up-regulated genes and for down-regulated genes.
 function for up-regulated genes.
 ```{r pcelist1, warnings=TRUE, message=FALSE}
 pceUP <- function(restable) {
-  restable <- restable[order(restable$padj),]
-  outTable <- merge(as.data.frame(restable),
-                    as.data.frame(counts(dds, normalized = TRUE)),
-                    by = "row.names",
-                    sort = FALSE)
+  restable <- restable[order(restable$padj), ]
+  outTable <- merge(as.data.frame(restable), 
+                    as.data.frame(counts(dds, normalized=TRUE)),
+                    by="row.names", sort=FALSE)
   names(outTable)[1] <- "Gene"
-  upName <- outTable %>% filter(log2FoldChange >= 1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
-    dplyr::select(Gene)
-  upNew <- annot[annot$ensembl_gene_id_version %in% upName$Gene, ]
+  upName <-outTable %>% filter(log2FoldChange >= 1) %>%
+  filter(padj <= 0.05) %>%
+  arrange(desc(log2FoldChange)) %>%
+  dplyr::select(Gene)
+  upNew <- annot[annot$ensembl_gene_id_version %in% upName$Gene,]
   upList <- upNew$ensembl_gene_id
   return(upList)
 }
@@ -268,18 +226,16 @@ function for down-regulated genes.
 
 ```{r pcelist2, warnings=TRUE, message=FALSE}
 pceDOWN <- function(restable) {
-  restable <- restable[order(restable$padj),]
+  restable <- restable[order(restable$padj), ]
   outTable <- merge(as.data.frame(restable),
-                    as.data.frame(counts(dds, normalized = TRUE)),
-                    by = "row.names",
-                    sort = FALSE)
+                    as.data.frame(counts(dds, normalized=TRUE)), 
+                    by="row.names", sort=FALSE)
   names(outTable)[1] <- "Gene"
-  downName <- outTable %>% filter(log2FoldChange <= -1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
-    dplyr::select(Gene)
-  downNew <-
-    annot[annot$ensembl_gene_id_version %in% downName$Gene, ]
+  downName <-outTable %>% filter(log2FoldChange <= -1) %>%
+  filter(padj <= 0.05) %>%
+  arrange(desc(log2FoldChange)) %>%
+  dplyr::select(Gene)
+  downNew <- annot[annot$ensembl_gene_id_version %in% downName$Gene,]
   downList <- downNew$ensembl_gene_id
   return(downList)
 }
@@ -307,397 +263,213 @@ STBvsL40.down <- pceDOWN(res.STBvsL40)
 BAPvsSTB.down <- pceDOWN(res.BAPvsSTB)
 ```
 
-## PlacentaCellEnrich (PCE)
+## Run PCE
 
 The above gene lists are used for running PCE. The function used for running PCE is below
 
 ```{r pcefunction}
 # load the PCE data
-l <-
-  load(file = "~/TutejaLab/PlacentaEnrich/combine-test-expression1.Rdata")
+l <- load(file = "~/TutejaLab/PlacentaEnrich/combine-test-expression1.Rdata")
 humanGeneMapping <- dataset$GRCH38$humanGeneMapping
 d <- dataset$PlacentaDeciduaBloodData
 data <- d$expressionData
 cellDetails <- d$cellDetails
 # create a run PCE function
 runpce <- function(inputgenelist, title, shade) {
-  inputGenes <- toupper(inputgenelist)
-  expressionData <-
-    data[intersect(row.names(data), humanGeneMapping$Gene), ]
-  se <-
-    SummarizedExperiment(
-      assays = SimpleList(as.matrix(expressionData)),
-      rowData = row.names(expressionData),
-      colData = colnames(expressionData)
-    )
-  cellSpecificGenesExp <-
-    teGeneRetrieval(se, expressedGeneThreshold = 1)
+  inputGenes<-toupper(inputgenelist)
+  expressionData<-data[intersect(row.names(data),humanGeneMapping$Gene),]
+  se<-SummarizedExperiment(assays = SimpleList(as.matrix(expressionData)),
+                           rowData = row.names(expressionData),
+                           colData = colnames(expressionData))
+  cellSpecificGenesExp<-teGeneRetrieval(se,expressedGeneThreshold = 1)
   print(length(inputGenes))
-  gs <- GeneSet(geneIds = toupper(inputGenes))
-  output2 <- teEnrichmentCustom(gs, cellSpecificGenesExp)
-  enrichmentOutput <- setNames(data.frame(assay(output2[[1]]),
-                                          row.names = rowData(output2[[1]])[, 1]),
-                               colData(output2[[1]])[, 1])
-  row.names(cellDetails) <- cellDetails$RName
-  enrichmentOutput$Tissue <-
-    cellDetails[row.names(enrichmentOutput), "CellName"]
-  ggplot(data = enrichmentOutput,
-         mapping = aes(x = reorder (Tissue,-Log10PValue), Log10PValue)) +
-    geom_bar(stat = "identity",
-             color = shade,
-             fill = shade) + theme_classic(base_size = 10) +
-    theme(
-      axis.text.x = element_text(
-        angle = 45,
-        vjust = 1,
-        hjust = 1,
-        size = 10
-      ),
-      plot.title = element_text(size = 12),
-      plot.margin = unit(c(1, 1, 1, 2), "cm")
-    ) +
-    labs(x = "",
-         y = "-log10 p-value (adj.)",
-         title = title) +
+  gs<-GeneSet(geneIds=toupper(inputGenes))
+  output2<-teEnrichmentCustom(gs,cellSpecificGenesExp)
+  enrichmentOutput<-setNames(data.frame(assay(output2[[1]]),
+                                        row.names = rowData(output2[[1]])[,1]),
+                             colData(output2[[1]])[,1])
+  row.names(cellDetails)<-cellDetails$RName
+  enrichmentOutput$Tissue<- cellDetails[row.names(enrichmentOutput),"CellName"]
+  ggplot(data = enrichmentOutput, mapping = aes(x = reorder (Tissue, -Log10PValue), Log10PValue)) +
+    geom_bar(stat = "identity", color = shade, fill = shade) + theme_classic(base_size = 10) + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 10),
+          plot.title = element_text(size = 12),
+          plot.margin = unit(c(1,1,1,2), "cm")) +
+          labs(x = "",
+               y = "-log10 p-value (adj.)",
+               title = title) +
     scale_y_continuous(expand = expansion(mult = c(0, .1)))
 }
 ```
 The PCE is run on each of the gene list as follows (up and down pair are displayed together)
 
-## PCE plots
-
 ### PCE: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
 
 ```{r pce1, fig.cap="Fig 2.1: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=14}
-p <-
-  runpce(nCTvsBAP.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
-q <-
-  runpce(nCTvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+p <- runpce(nCTvsBAP.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
+q <- runpce(nCTvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 ### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe
 
 ```{r pce2, fig.cap="Fig 2.2: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(nCTvsSTB.up , "overexpressed in H9_nCT_P10_Io)", "#F16746")
-q <-
-  runpce(nCTvsSTB.down ,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+p <- runpce(nCTvsSTB.up , "overexpressed in H9_nCT_P10_Io)", "#F16746")
+q <- runpce(nCTvsSTB.down , "overexpressed in H1_BAP_D8_>70_Yabe", "#5C823A")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 ### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
 
 ```{r pce3, fig.cap="Fig 2.3: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
 p <- runpce(nTEvsSTB.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <-
-  runpce(nTEvsSTB.down ,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+q <- runpce(nTEvsSTB.down , "overexpressed in H1_BAP_D8_>70_Yabe", "#5C823A")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 ### PCE: H9_nTE_D3_Io vs. pBAP_D3_Io
 
 ```{r pce4, fig.cap="Fig 2.4: H9_nTE_D3_Io vs. pBAP_D3_Io", fig.width=8, fig.height=14}
 p <- runpce(nTEvsBAP.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <-
-  runpce(nTEvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+q <- runpce(nTEvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
 ### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
 ```{r pce5, fig.cap="Fig 2.5: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <- runpce(nTEvsL40.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <-
-  runpce(nTEvsL40.down ,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AFBF38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+q <- runpce(nTEvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#AFBF38")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
 ### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
 ```{r pce6, fig.cap="Fig 2.6: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(nCTvsL40.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
-q <-
-  runpce(nCTvsL40.down ,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AFBF38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+p <- runpce(nCTvsL40.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
+q <- runpce(nCTvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#AFBF38")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 ### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
 ```{r pce7, fig.cap="Fig 2.7: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(BAPvsL40.up , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-q <-
-  runpce(BAPvsL40.down ,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AFBF38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+p <- runpce(BAPvsL40.up , "up regulated in H9_pBAP_D3_Io", "#0773B2")
+q <- runpce(BAPvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#AFBF38")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
 ### PCE: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
 ```{r pce8, fig.cap="Fig 2.8: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(STBvsL40.up ,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-q <-
-  runpce(STBvsL40.down ,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AEBD38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+p <- runpce(STBvsL40.up , "overexpressed in H1_BAP_D8_>70_Yabe", "#AFBF38")
+q <- runpce(STBvsL40.down , "overexpressed in H1_BAP_D8_<40_Yabe", "#0773B2")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 ### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
 ```{r pce9, fig.cap="Fig 2.9: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(BAPvsSTB.up , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-q <-
-  runpce(BAPvsSTB.down ,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
+p <- runpce(BAPvsSTB.up , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+q <- runpce(BAPvsSTB.down , "overexpressed in H1_BAP_D8_>70_Yabe", "#5C823A")
+panel_plot <- plot_grid(p, q, labels=c("A", "B"), ncol=1, nrow = 2)
 panel_plot
 ```
 
-## Volcano Plot function
+## Volcano plots
 
 We will setup a funciton for drawing volcano plots and then run them on the DESeq2 results. The funciton is as shown below
 
 
 ```{r volcano}
-mart <-
-  read.csv(
-    "~/TutejaLab/amnion_for_ms_20210715/de-analyses/mart-genes.tsv",
-    sep = "\t",
-    stringsAsFactors = TRUE,
-    header = TRUE
-  )
+mart <- read.csv("~/TutejaLab/amnion_for_ms_20210715/de-analyses/mart-genes.tsv",
+                 sep="\t", stringsAsFactors = TRUE,
+                 header = TRUE)
 myVolPlot <- function(restable, first, second, shade1, shade2) {
-  restable <- restable[order(restable$padj),]
-  outTable <-
-    tibble::rownames_to_column(as.data.frame(restable), "Gene")
-  outTable <- merge(
-    outTable,
-    mart,
-    by.x = c("Gene"),
-    by.y = c("ensembl_gene_id_version"),
-    sort = FALSE
-  )
-  outTable <- outTable %>%
-    mutate_all(na_if, "") %>%
-    mutate_all(na_if, " ") %>%
-    mutate(gene_symbol = coalesce(gene_symbol, Gene))
+  restable <- restable[order(restable$padj), ]
+  outTable <- tibble::rownames_to_column(as.data.frame(restable), "Gene")
+  outTable <- merge(outTable, mart, by.x=c("Gene"), 
+                    by.y = c("ensembl_gene_id_version"),
+                    sort=FALSE)
+  outTable <- outTable %>% 
+    mutate_all(na_if,"") %>% 
+    mutate_all(na_if," ") %>% 
+    mutate(gene_symbol = coalesce(gene_symbol,Gene))
   outTable$diffexpressed <- "other.genes"
   outTable$diffexpressed[outTable$log2FoldChange >= 1 &
-                           outTable$padj <= 0.05] <-
-    paste0("Higher expression in ", first)
+                           outTable$padj <= 0.05] <- paste0("Higher expression in ", first)
   outTable$diffexpressed[outTable$log2FoldChange <= -1 &
-                           outTable$padj <= 0.05] <-
-    paste0("Higher expression in ", second)
+                           outTable$padj <= 0.05] <- paste0("Higher expression in ", second)
   outTable$delabel <- ""
-  outTable$delabel[outTable$log2FoldChange >= 1
-                   & outTable$padj <= 0.05
-                   &
-                     !is.na(outTable$padj)] <-
-    outTable$gene_symbol[outTable$log2FoldChange >= 1
-                         &
-                           outTable$padj <= 0.05
-                         &
-                           !is.na(outTable$padj)]
-  outTable$delabel[outTable$log2FoldChange <= -1
-                   & outTable$padj <= 0.05
-                   &
-                     !is.na(outTable$padj)] <-
-    outTable$gene_symbol[outTable$log2FoldChange <= -1
-                         &
-                           outTable$padj <= 0.05
-                         &
-                           !is.na(outTable$padj)]
-  ggplot(outTable,
-         aes(
-           x = log2FoldChange,
-           y = -log10(padj),
-           col = diffexpressed,
-           label = delabel
-         )) +
-    geom_point(alpha = 0.5) +
-    theme_classic() +
-    scale_color_manual(name = "Expression",
-                       values = c(shade1, shade2, "#4d4d4d")) +
-    xlab("log2 fold change") +
-    ylab("-log10 pvalue (adjusted)") +
-    theme(
-      legend.text.align = 0,
-      legend.position = c(.95, .95),
-      legend.justification = c("right", "top"),
-      legend.box.just = "right",
-      legend.margin = margin(5, 5, 5, 5)
-    )
+  outTable$delabel[outTable$log2FoldChange >= 1 
+             & outTable$padj <= 0.05 
+             & !is.na(outTable$padj)] <- outTable$gene_symbol[outTable$log2FoldChange >= 1 
+                                                      & outTable$padj <= 0.05 
+                                                      & !is.na(outTable$padj)]
+  outTable$delabel[outTable$log2FoldChange <= -1 
+             & outTable$padj <= 0.05 
+             & !is.na(outTable$padj)] <- outTable$gene_symbol[outTable$log2FoldChange <= -1 
+                                                      & outTable$padj <= 0.05 
+                                                      & !is.na(outTable$padj)]
+  ggplot(outTable, aes(x=log2FoldChange, y=-log10(padj), col=diffexpressed, label=delabel)) +
+  geom_point(alpha = 0.5) +
+  theme_classic() +
+  scale_color_manual(name = "Expression", values=c(shade1, shade2, "#4d4d4d")) +
+#  ggtitle(paste0(first, " vs. ", second)) +
+  xlab("log2 fold change") +
+  ylab("-log10 pvalue (adjusted)") +
+  theme(legend.text.align = 0,
+    legend.position = c(.95, .95),
+    legend.justification = c("right", "top"),
+    legend.box.just = "right",
+    legend.margin = margin(5, 5, 5, 5))
 }
 ```
-
-## Volcano Plots
 
 Running Volcano plots for each comparison is shown below
 
 ### Volcano plot: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
 ```{r vol1, fig.cap="Fig 2.10: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
-ggplotly(myVolPlot(
-  res.nCTvsBAP,
-  "H9_nCT_P10_Io",
-  "H9_pBAP_D3_Io",
-  "#F16746",
-  "#0571b0"
-))
+ggplotly(myVolPlot(res.nCTvsBAP, "H9_nCT_P10_Io", "H9_pBAP_D3_Io", "#F16746", "#0571b0" ))
 ```
 
 ### Volcano plot: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe
 ```{r vol2, fig.cap="Fig 2.11: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nCTvsSTB,
-    "H9_nCT_P10_Io",
-    "H1_BAP_D8_>70_Yabe",
-    "#5C823A",
-    "#F16746"
-  )
-)
+ggplotly(myVolPlot(res.nCTvsSTB, "H9_nCT_P10_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#F16746" ))
 ```
 
 ### Volcano plot: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
 ```{r vol3, fig.cap="Fig 2.12: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nTEvsSTB,
-    "H9_nTE_D3_Io",
-    "H1_BAP_D8_>70_Yabe",
-    "#5C823A",
-    "#C79D2E"
-  )
-)
+ggplotly(myVolPlot(res.nTEvsSTB, "H9_nTE_D3_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#C79D2E" ))
 ```
 
 ### Volcano plot: H9_nTE_D3_Io vs. H9_pBAP_D3_Io
 ```{r vol4, fig.cap="Fig 2.13: H9_nTE_D3_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
-ggplotly(myVolPlot(
-  res.nTEvsBAP,
-  "H9_nTE_D3_Io",
-  "H9_pBAP_D3_Io",
-  "#C79D2E",
-  "#0571b0"
-))
+ggplotly(myVolPlot(res.nTEvsBAP, "H9_nTE_D3_Io", "H9_pBAP_D3_Io", "#C79D2E", "#0571b0" ))
 ```
 
 ### Volcano plot: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
 ```{r vol5, fig.cap="Fig 2.14: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nTEvsL40,
-    "H9_nTE_D3_Io",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#C79D2E"
-  )
-)
+ggplotly(myVolPlot(res.nTEvsL40, "H9_nTE_D3_Io", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#C79D2E"))
 ```
 
 ### Volcano plot: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
 ```{r vol6, fig.cap="Fig 2.15: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nCTvsL40,
-    "H9_nCT_P10_Io",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#F16746"
-  )
-)
+ggplotly(myVolPlot(res.nCTvsL40, "H9_nCT_P10_Io", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#F16746" ))
 ```
 
 ### Volcano plot: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
 ```{r vol7, fig.cap="Fig 2.16: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.BAPvsL40,
-    "H9_pBAP_D3_Io",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#0571b0"
-  )
-)
+ggplotly(myVolPlot(res.BAPvsL40, "H9_pBAP_D3_Io", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#0571b0" ))
 ```
 
 ### Volcano plot: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
 ```{r vol8, fig.cap="Fig 2.17: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.STBvsL40,
-    "H1_BAP_D8_>70_Yabe",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#5C823A"
-  )
-)
+ggplotly(myVolPlot(res.STBvsL40, "H1_BAP_D8_>70_Yabe", "H1_BAP_D8_<40_Yabe", "#AEBD38", "#5C823A" ))
 ```
 
 ### Volcano plot: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
 ```{r vol9, fig.cap="Fig 2.18: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.BAPvsSTB,
-    "H9_pBAP_D3_Io",
-    "H1_BAP_D8_>70_Yabe",
-    "#5C823A",
-    "#0571b0"
-  )
-)
+ggplotly(myVolPlot(res.BAPvsSTB, "H9_pBAP_D3_Io", "H1_BAP_D8_>70_Yabe", "#5C823A", "#0571b0" ))
 ```
-## Session Information
 
 ```{r sessioninfo}
 sessionInfo()
