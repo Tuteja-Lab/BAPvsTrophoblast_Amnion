@@ -1,2 +1,0 @@
-"tegenes"
-"dS1","IGFBP5;RAMP1"

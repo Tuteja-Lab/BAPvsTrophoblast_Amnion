@@ -1,2 +1,0 @@
-"tegenes"
-"VCT","CSF3R;ECHDC2;ADAMTSL4;P2RY6"

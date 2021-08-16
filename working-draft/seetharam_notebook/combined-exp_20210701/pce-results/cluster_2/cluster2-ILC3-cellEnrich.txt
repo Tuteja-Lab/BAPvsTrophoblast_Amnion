@@ -1,2 +1,0 @@
-"tegenes"
-"ILC3","AQP3"

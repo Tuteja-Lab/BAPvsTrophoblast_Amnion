@@ -1,2 +1,0 @@
-"tegenes"
-"dM1","MXD1;FTL;HMOX1;SOD2;TREM1"

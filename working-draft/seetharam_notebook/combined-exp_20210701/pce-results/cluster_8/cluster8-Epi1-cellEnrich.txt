@@ -1,2 +1,0 @@
-"tegenes"
-"Epi1","CRYAB;SEC11C;MAOA;ANXA4"
