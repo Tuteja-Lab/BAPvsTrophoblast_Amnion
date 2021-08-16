@@ -38,10 +38,10 @@ knitr::opts_knit$set(width = 75)
 ```{bash, eval=FALSE, engine="sh"}
 while read a b; do
 python3 enaBrowserTools-1.6/python3/enaDataGet.py \
-   -f fastq \
-  -as  ~/.aspera_setting.ini \
+  -f fastq \
+  -as ~/.aspera_setting.ini \
   $a;
-done<assets/needed-sra.txt 
+done < assets/needed-sra.txt 
 ```
 ### Genome/annotation
 
@@ -59,7 +59,7 @@ Script to index (`star-index.sh`):
 
 ```{bash, eval=FALSE, engine="sh"} 
 #!/bin/bash
-ml star
+module load star
 GTF=gencode.v37.primary_assembly.annotation.gtf
 FASTA=GRCh38.primary_assembly.genome.fa
 STAR --runThreadN 36 \
@@ -74,7 +74,7 @@ STAR --runThreadN 36 \
 
 ```{bash, eval=FALSE, engine="sh"}
  #!/bin/bash
-ml star
+module load star
 index=/work/LAS/geetu-lab/arnstrm/amnion-rnaseq/lo-etal/GRCh38
 read1=$1
 cpus=36
@@ -91,7 +91,7 @@ STAR \
 --readFilesIn ${read1}
 ```
 
-prepare jobs:
+Prepare jobs:
 
 ```{bash, eval=FALSE, engine="sh"}
 find $(pwd) -name ".fastq.gz" > input.fofn

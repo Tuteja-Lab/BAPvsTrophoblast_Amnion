@@ -33,11 +33,11 @@ knitr::opts_knit$set(width = 75)
 
 ## snRNAseq analysis
 
-This section uses snRNAseq BAP.d8 dataset (Khan et. al.,) and nTE/nCT dataset (Io et. al.,) to run scRNAseq analyses using Seurat. Breifly, the counts data is imported in R as Seurat object, samples are intergrated, transformed and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
+This section uses snRNA-seq BAP.d8 dataset (Khan et. al.,) and nTE/nCT dataset (Io et. al.,) to run sn and scRNA-seq analyses with Seurat. Briefly, the count data are imported into R as a Seurat object,; samples are integrated, transformed, and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
 
 ## Prerequisites
 
-R packages required for this section are loaded
+R packages required for this section are loaded.
 
 ```{r package, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -70,7 +70,7 @@ library(R.utils)
 
 ## Import datasets
 
-The 10X data was already processed with `CellRanger` (v.4.0.0) and the counts table was ready for us to import for the data analyses.
+The 10X data was already processed with `CellRanger` (v.4.0.0) and the count table was ready for us to import for the data analyses.
 We used the inbuilt function to import this data and to create a `Seurat` object as described below.
 
 
@@ -107,10 +107,10 @@ bapd8.combined <- CreateSeuratObject(
   names.delim = "\\-"
 )
 ```
-## Data quality insepction
 
-After the data was imported, we checked the quality of the data. Mitochondrial expression is an important criteria (along with other quantitative features of each nuclei) to decide if the nucleus is good or bad. We tested it as follows
+## Data quality inspection
 
+After the data was imported, we checked the quality of the data. Mitochondrial expression is an important criteria (along with other quantitative features of each nuclei) to decide if the nucleus is high quality. We tested it as follows.
 
 ### MT ratio in nucleus
 
@@ -237,7 +237,7 @@ mtratio
 
 ## Data filtering
 
-After inspection, we decided to remove all mitochondiral genes as well as ribosomal genes from our analyses.
+After inspection, we decided to remove all mitochondrial genes as well as ribosomal genes from our analyses.
 
 ### set up the metadata file and organize
 
@@ -254,7 +254,7 @@ bapd8.combined[["percent.mt"]] <-
   PercentageFeatureSet(bapd8.combined, pattern = "^MT-")
 ```
 
-### Comparing samples QC across Replicates
+### Comparing samples QC across replicates
 
 ```{r scRNAseqMetrics1, fig.cap="Fig 5.7: Comparing gene counts, transcript counts and MT percent across samples", fig.width=10, fig.height=5}
 p <-
@@ -372,10 +372,10 @@ bapd8.combined <- bapd8.fcombined
 ```
 ## Data integration and Clustering
 
-`Seurat` package was used for integrating samples and running the snRNAseq analyses.
+`Seurat` package was used for integrating samples and running the snRNA-seq analyses.
 
 
-### data integration/clustering
+### Data integration/clustering
 
 (see optimization section below)
 
@@ -434,7 +434,7 @@ bapd8.integrated@meta.data <- df
 Idents(bapd8.integrated) <- "new_clusters"
 ```
 
-### Visulaize dimensional reduction
+### Visualize dimensional reduction
 
 ```{r clusterplots, fig.cap="Fig 5.11: Dimensional reduction plot showing cells plotted in two dimensions. (A) colored based on cluster identitiy (B) colored based on sample identity", fig.width=8, fig.height=5}
 A = enhancedDimPlot(
@@ -575,7 +575,7 @@ DimPlot(object = bapd8.integrated,
 ```
 #### Interactive dimensional reduction plot
 
-```{r clusterplotsInteractive, fig.cap="Fig 5.13: Interactive Dimensional reduction plot cells plotted in two dimensions. The colored dots represent individual cells and are assigned based on cluster identity", fig.width=6, fig.height=5}
+```{r clusterplotsInteractive, fig.cap="Fig 5.13: Interactive dimensional reduction plot in two dimensions. The colored dots represent individual cells and are assigned based on cluster identity", fig.width=6, fig.height=5}
 A = enhancedDimPlot(
   object = bapd8.integrated,
   grouping_var = 'ident',
@@ -593,7 +593,7 @@ ggplotly(A)
 
 ### Finding cluster markers
 
-Cluster markers are defined as FC of >= 1 and p-value (adj) <= 0.05.
+Cluster markers are defined as fold chance of >= 1.5 and p-value (adj) <= 0.05.
 We will find all markers of for each cluster with a loop.
 
 ```{r markers, warnings=TRUE, message=FALSE}
@@ -704,7 +704,7 @@ mybarplot <- function(pdata, i) {
 
 ### Define Colors
 
-define colors for each cluster so that they are standardized.
+Define colors for each cluster so that they are standardized.
 
 ```{r colorAssign, warnings=TRUE, message=FALSE}
 ggplotColours <- function(n = 6, h = c(0, 360) + 15) {
@@ -764,7 +764,7 @@ data <- d$expressionData
 cellDetails <- d$cellDetails
 ```
 
-Function for running/plotting the PCE
+Function for running/plotting the PCE.
 
 ```{r pceFunction, warnings=TRUE, message=FALSE} 
 runpce <- function(inputgenelist, clusternumber, shade) {
@@ -814,7 +814,7 @@ runpce <- function(inputgenelist, clusternumber, shade) {
 ```
 ### Run analyses on each cluster
 
-#### Cluser 1
+#### Cluster 1
 ```{r cluster1, fig.cap="Fig 5.14: Cluster 1 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 1, color_list[1])
 count <- mybarplot(Cluster_1, 1)
@@ -832,7 +832,7 @@ panel_plot <-
 panel_plot
 ```
 
-#### Cluser 2
+#### Cluster 2
 
 ```{r cluster2, fig.cap="Fig 5.15: Cluster 2 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.2, 2, color_list[2])
@@ -851,7 +851,7 @@ panel_plot <-
 panel_plot
 ```
 
-#### Cluser 3
+#### Cluster 3
 
 ```{r cluster3, fig.cap="Fig 5.16: Cluster 3 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.3, 3, color_list[3])
@@ -869,7 +869,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 4
+#### Cluster 4
 
 ```{r cluster4, fig.cap="Fig 5.17: Cluster 4 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.4, 4, color_list[4])
@@ -887,7 +887,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 5
+#### Cluster 5
 
 ```{r cluster5, fig.cap="Fig 5.18: Cluster 5 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.5, 5, color_list[5])
@@ -905,7 +905,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 6
+#### Cluster 6
 
 ```{r cluster6, fig.cap="Fig 5.19: Cluster 6 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.6, 6, color_list[6])
@@ -923,7 +923,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 7
+#### Cluster 7
 
 ```{r cluster7, fig.cap="Fig 5.20: Cluster 7 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.7, 7, color_list[7])
@@ -941,7 +941,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 8
+#### Cluster 8
 
 ```{r cluster8, fig.cap="Fig 5.21: Cluster 8 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 8, color_list[8])
@@ -959,7 +959,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 9
+#### Cluster 9
 
 ```{r cluster9, fig.cap="Fig 5.22: Cluster 9 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 9, color_list[9])
@@ -977,7 +977,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 10
+#### Cluster 10
 
 ```{r cluster10, fig.cap="Fig 5.23: Cluster 10 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 10, color_list[10])
@@ -995,7 +995,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 11
+#### Cluster 11
 
 ```{r cluster11, fig.cap="Fig 5.24: Cluster 11 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 11, color_list[11])
@@ -1013,7 +1013,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 12
+#### Cluster 12
 
 ```{r cluster12, fig.cap="Fig 5.25: Cluster 12 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 12, color_list[12])
@@ -1031,7 +1031,7 @@ panel_plot <-
   )
 panel_plot
 ```
-#### Cluser 13
+#### Cluster 13
 
 ```{r cluster13, fig.cap="Fig 5.26: Cluster 13 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
 pce <- runpce(cluster.marker.names.1, 13, color_list[13])
@@ -1052,7 +1052,7 @@ panel_plot
 
 ### Comparing STB genes 
 
-STB was enriched in cluster 6 and Cluster 8. We will see the expression of the genes in Zohou et. al., dataset.
+Syncytiotrophoblast (STB) was enriched in Cluster 6 and Cluster 8. We will see the expression of the genes in Zohou et. al., dataset.
 
 #### PCE function to extract STB genes
 

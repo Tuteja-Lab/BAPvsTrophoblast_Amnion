@@ -31,13 +31,13 @@ knitr::opts_chunk$set(
 knitr::opts_knit$set(width = 75)
 ```
 
-This section uses the counts data (all datasets) generated in Section 1 for cluseter analyses. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, `vst` transformation and clustering is performed using `DESeq2`, and results visualized as PCA plots.
+This section uses the count data (all datasets) generated in Section 1 for cluster analyses. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation and clustering is performed using `DESeq2`, and results are visualized as PCA plots.
 
 # PCA plot for all libraries
 
 ## Prerequisites
 
-R packages required for this section are loaded
+R packages required for this section are loaded.
 
 ```{r, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -55,7 +55,7 @@ library(plotly)
 
 ## Import datasets
 
-The `counts` data and its associated metadata (`coldata`) are imported for analyses
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
 counts = 'assets/new-counts.tsv'
@@ -70,13 +70,13 @@ coldata <-
 cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
 ```
 
-inspect the `coldata`
+Inspect the `coldata`.
 
 ```{r coldata}
 DT::datatable(coldata)
 ```
 
-reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
+Reorder columns of `cts` according to `coldata` rows. Check if samples in both files match.
 
 ```{r order, warnings=TRUE, message=FALSE}
 colnames(cts)
@@ -86,7 +86,7 @@ cts <- cts[, rownames(coldata)]
 
 ## Batch correction
 
-Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
+Using `Combat_seq` (SVA package) run batch correction - using bioproject IDs as variable (dataset origin).
 
 ```{r batchcorrect, warnings=TRUE, message=TRUE}
 cov1 <- as.factor(coldata$authors)
@@ -97,15 +97,15 @@ cts <- cts[, rownames(coldata)]
 
 ## run DESeq2
 
-The batch corrected read counts are then used for running DESeq2 analyses
+The batch corrected read counts are then used for running DESeq2 analyses.
 
 ```{r deseq2, warnings=TRUE, message=FALSE}
 dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               colData = coldata,
                               design = ~ group)
 ```
-transformation
 
+Transformation:
 ```{r vst, warnings=TRUE, message=FALSE}
 vsd <- vst(dds, blind = FALSE)
 pcaData <-
@@ -137,7 +137,7 @@ ggplotly(
 
 ## Import datasets
 
-The `counts` data and its associated metadata (`coldata`) are imported for analyses
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r import2, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -153,22 +153,20 @@ coldata2 <-
 cts2 <- as.matrix(read.csv(counts2, sep = "\t", row.names = "gene.ids"))
 ```
 
-inspect the `coldata`
+Inspect the `coldata`.
 
 ```{r coldata2}
 DT::datatable(coldata2)
 ```
 
-
-reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
+Reorder columns of `cts` according to `coldata` rows. Check if samples in both files matches.
 ```{r order2}
 all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
 ```
 
 ## Batch correction
-
-Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
+Using `ComBat_seq` (SVA package) run batch correction - using bioproject IDs as variable (dataset origin).
 
 ```{r batchcorrect2, warnings=TRUE, message=TRUE}
 cov1 <- as.factor(coldata2$authors)
@@ -176,9 +174,9 @@ adjusted_counts <- ComBat_seq(cts2, batch = cov1, group = NULL)
 all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
 ```
-## run DESeq2
 
-The batch corrected read counts are then used for running DESeq2 analyses
+## Run DESeq2
+The batch corrected read counts are then used for running DESeq2 analyses.
 
 ```{r deseq2b, warnings=TRUE, message=FALSE}
 dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
@@ -186,7 +184,7 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               design = ~ group)
 ```
 
-transformation
+Transformation:
 
 ```{r vst2, warnings=TRUE, message=FALSE}
 vsd <- vst(dds, blind = FALSE)

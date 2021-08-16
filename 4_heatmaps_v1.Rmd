@@ -33,11 +33,11 @@ knitr::opts_knit$set(width = 75)
 
 ## Generating heatmaps for selected genes
 
-This section uses the counts data (selected datasets) generated in Section 1 for generating heatmaps. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, `vst` transformation is perfromed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
+This section uses the count data (selected datasets) generated in Section 1 for generating heatmaps. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation is performed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
 
 ## Prerequisites
 
-R packages required for this section are loaded
+R packages required for this section are loaded.
 
 ```{r, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
@@ -55,7 +55,7 @@ library(plotly)
 
 ## Import datasets
 
-The `counts` data and its associated metadata (`coldata`) are imported for analyses
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
 counts = 'assets/counts.tsv'
@@ -69,13 +69,13 @@ coldata <-
   )
 cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
 ```
-inspect the `coldata`
+Inspect the `coldata`.
 
 ```{r coldata}
 DT::datatable(coldata)
 ```
 
-reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
+Reorder columns of `cts` according to `coldata` rows. Check if the samples in both files match.
 
 ```{r order, warnings=TRUE, message=FALSE}
 colnames(cts)
@@ -85,7 +85,7 @@ cts <- cts[, rownames(coldata)]
 
 ## Batch correction
 
-Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
+Using `ComBat_seq` (SVA package) to run batch correction - using bioproject IDs as variable (dataset origin).
 
 ```{r batchcorrect, warnings=TRUE, message=TRUE}
 cov1 <- as.factor(coldata$authors)
@@ -96,7 +96,7 @@ cts <- cts[, rownames(coldata)]
 
 ## run DESeq2
 
-The batch corrected read counts are then used for running DESeq2 analyses
+The batch corrected read counts are then used for running DESeq2 analyses.
 
 ```{r deseq2, warnings=TRUE, message=FALSE}
 dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
@@ -108,7 +108,7 @@ dds <- dds[keep, ]
 dds <- DESeq(dds)
 ```
 
-normalized
+Normalize counts.
 
 ```{r normtable, warnings=TRUE, message=FALSE}
 normalized_counts <- counts(dds, normalized = T) %>%
@@ -142,13 +142,13 @@ norm_selected <- normalized_counts %>%
   filter(gene %in% G_list$ensembl_gene_id_version)
 write_delim(norm_selected, file = "assets/monkey_genes_normalized-table.tsv", delim = "\t")
 ```
-inspect
+Inspect.
 
 ```{r monkeytable}
 DT::datatable(norm_selected)
 ```
 
-data processing
+Data processing.
 
 ```{r monkey2, warnings=TRUE, message=FALSE}
 norm.selected.long <- melt(norm_selected, id.vars = "gene")
@@ -182,7 +182,7 @@ rownames(annotation) <- colnames(temp)
 temp <- temp[, c(8, 9, 5, 6, 7, 2, 3, 4, 1)]
 ```
 
-visualization
+Visualization.
 
 ```{r heatmap1, fig.cap="Fig 4.1: Heatmap comparing the monkey amnion genes across various datasets", fig.width=8, fig.height=8}
 pheatmap(
@@ -213,13 +213,13 @@ supp2 <- merge(
 write_delim(supp2, file = "assets/supp2_normalized-table.tsv", delim = "\t")
 ```
 
-inspect
+Inspect.
 
 ```{r supptable}
 DT::datatable(supp2)
 ```
 
-processing
+Processing.
 
 ```{r supp2process, warnings=TRUE, message=FALSE}
 file1 <- "assets/genes-Fig6b.txt"
@@ -271,7 +271,7 @@ heat_colors <- brewer.pal(9, "YlOrRd")
 rownames(annotation) <- colnames(temp)
 temp <- temp[, c(8, 9, 5, 6, 7, 2, 3, 4, 1)]
 ```
-visualization
+Visualization.
 
 ```{r heatmap2, fig.cap="Fig 4.2: Heatmap comparing the Io amnion genes across various datasets", fig.width=8, fig.height=20}
 g <- pheatmap(

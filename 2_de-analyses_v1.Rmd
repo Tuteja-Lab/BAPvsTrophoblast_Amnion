@@ -33,7 +33,7 @@ knitr::opts_knit$set(width = 75)
 
 ## DESeq2 analyses steps
 
-This section uses the counts data (for selected datasets) generated in Section 1 to differential expression (DE) analyses using `DESeq2`. Breifly, the counts data is imported in R, batch corrected using `ComBat_seq`, DE performed for various contrasts using `DESeq2`, results visualized as volcano plots, and cell enrichment performed using `PlacentaCellEnrich`.
+This section uses the count data (for selected datasets) generated in Section 1 to do differential expression (DE) analyses using `DESeq2`. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, then DE analyses were performed for various contrasts using `DESeq2`. Results were visualized as volcano plots, and cell enrichment performed using `PlacentaCellEnrich` (`PCE`).
 
 ## Prerequisites
 
@@ -62,7 +62,7 @@ library(biomaRt)
 
 ## Import datasets
 
-The `counts` data and its associated metadata (`coldata`) are imported for analyses
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
 counts = '~/github/amnion.vs.other_RNASeq/assets/counts-subset-v4.txt'
@@ -77,13 +77,13 @@ coldata <-
 cts <- as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
 ```
 
-inspect the `coldata`
+Inspect the `coldata`.
 
 ```{r coldata}
 DT::datatable(coldata)
 ```
 
-reorder columns of `cts` according to `coldata` rows. Check if it both files matches.
+Reorder columns of `cts` according to `coldata` rows. Check if samples in both files match.
 
 ```{r order, warnings=TRUE, message=FALSE}
 colnames(cts)
@@ -93,7 +93,7 @@ cts <- cts[, rownames(coldata)]
 
 ## Batch correction
 
-Using combat seq (SVA package) run batch correction - using bioproject ids as variable (dataset origin).
+Using ComBat_seq (SVA package) to run batch correction - using bioproject IDs as variable (dataset origin).
 
 ```{r batchcorrect, warnings=TRUE, message=FALSE}
 cov1 <- as.factor(coldata$BioProject)
@@ -117,7 +117,7 @@ dds <- DESeq(dds)
 dds
 ```
 
-Various contrasts are setup as follows (a total of 9 combinations)
+Various contrasts are set up as follows (a total of 9 combinations)
 
 ```{r cotnrasts, warnings=TRUE, message=FALSE}
 res.nCTvsBAP <- results(dds,
@@ -175,7 +175,7 @@ res.STBvsL40 <- results(dds,
                           ))
 ```
 
-Using a function we will save results as well as generate variable to hold the gene lists for running PCE later-on.
+The following function is to save DESeq2 results as well as generate variable to hold the gene lists for running PCE later on.
 
 ```{r deseq2funx, warnings=TRUE, message=FALSE}
 processDE <- function(restable, fileName) {
@@ -192,15 +192,15 @@ processDE <- function(restable, fileName) {
     filter(padj <= 0.05) %>%
     arrange(desc(log2FoldChange)) %>%
     dplyr::select(Gene)
-  downName <- paste0(fileName, ".donw")
-  downName <- outTable %>% filter(log2FoldChange <= 1) %>%
+  downName <- paste0(fileName, ".down")
+  downName <- outTable %>% filter(log2FoldChange <= -1) %>%
     filter(padj <= 0.05) %>%
     arrange(desc(log2FoldChange)) %>%
     dplyr::select(Gene)
 }
 ```
 
-The results are saved as tsv files 
+The results are saved as tsv files.
 
 ```{r deseq2save, warnings=TRUE, message=FALSE}
 processDE(res.nCTvsBAP, "nCTvsBAP")
@@ -215,10 +215,10 @@ processDE(res.BAPvsSTB, "BAPvsSTB")
 ```
 
 
-## Creating gene-lists
+## Creating gene lists
 
-The gene-lists have ensembl gene-id-version. We need them in just gene-id. We also need other metadata later for these lists.
-From ensembl we will download metadata and attach to these lists.
+The gene lists have Ensembl gene ID version. We need them in just gene IDs. We also need other metadata later for these lists.
+From Ensembl we will download metadata and attach to these lists.
 
 ```{r annotations, warnings=TRUE, message=FALSE}
 ensembl = useMart("ENSEMBL_MART_ENSEMBL")
@@ -242,11 +242,11 @@ annot <- getBM(
 )
 isDup <- duplicated(annot$ensembl_gene_id)
 dup <- annot$ensembl_gene_id[isDup]
-annot <- annot[!annot$ensembl_gene_id %in% dup, ]
+annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
 ```
 
 We will create separate lists for up-regulated genes and for down-regulated genes.
-function for up-regulated genes.
+Function for up-regulated genes.
 ```{r pcelist1, warnings=TRUE, message=FALSE}
 pceUP <- function(restable) {
   restable <- restable[order(restable$padj),]
@@ -264,7 +264,7 @@ pceUP <- function(restable) {
   return(upList)
 }
 ```
-function for down-regulated genes.
+Function for down-regulated genes.
 
 ```{r pcelist2, warnings=TRUE, message=FALSE}
 pceDOWN <- function(restable) {
@@ -284,7 +284,8 @@ pceDOWN <- function(restable) {
   return(downList)
 }
 ```
-Run the functions on the DESeq2 results object
+
+Run the functions on the DESeq2 result objects.
 
 ```{r pce, warnings=TRUE, message=FALSE}
 nCTvsBAP.up <- pceUP(res.nCTvsBAP)
@@ -309,7 +310,7 @@ BAPvsSTB.down <- pceDOWN(res.BAPvsSTB)
 
 ## PlacentaCellEnrich (PCE)
 
-The above gene lists are used for running PCE. The function used for running PCE is below
+The above gene lists are used for running PCE. The function used for running PCE is below.
 
 ```{r pcefunction}
 # load the PCE data
@@ -362,7 +363,7 @@ runpce <- function(inputgenelist, title, shade) {
     scale_y_continuous(expand = expansion(mult = c(0, .1)))
 }
 ```
-The PCE is run on each of the gene list as follows (up and down pair are displayed together)
+The PCE is run on each of the gene lists as follows (up and down pairs are displayed together).
 
 ## PCE plots
 
@@ -370,9 +371,9 @@ The PCE is run on each of the gene list as follows (up and down pair are display
 
 ```{r pce1, fig.cap="Fig 2.1: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=14}
 p <-
-  runpce(nCTvsBAP.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
+  runpce(nCTvsBAP.up, "overexpressed in H9_nCT_P10_Io", "#F16746")
 q <-
-  runpce(nCTvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+  runpce(nCTvsBAP.down, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
 panel_plot <- plot_grid(p,
                         q,
                         labels = c("A", "B"),
@@ -384,9 +385,9 @@ panel_plot
 
 ```{r pce2, fig.cap="Fig 2.2: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
 p <-
-  runpce(nCTvsSTB.up , "overexpressed in H9_nCT_P10_Io)", "#F16746")
+  runpce(nCTvsSTB.up, "overexpressed in H9_nCT_P10_Io)", "#F16746")
 q <-
-  runpce(nCTvsSTB.down ,
+  runpce(nCTvsSTB.down,
          "overexpressed in H1_BAP_D8_>70_Yabe",
          "#5C823A")
 panel_plot <- plot_grid(p,
@@ -399,9 +400,9 @@ panel_plot
 ### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
 
 ```{r pce3, fig.cap="Fig 2.3: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <- runpce(nTEvsSTB.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
+p <- runpce(nTEvsSTB.up, "overexpressed in H9_nTE_D3_Io", "#C79D2E")
 q <-
-  runpce(nTEvsSTB.down ,
+  runpce(nTEvsSTB.down,
          "overexpressed in H1_BAP_D8_>70_Yabe",
          "#5C823A")
 panel_plot <- plot_grid(p,
@@ -414,9 +415,9 @@ panel_plot
 ### PCE: H9_nTE_D3_Io vs. pBAP_D3_Io
 
 ```{r pce4, fig.cap="Fig 2.4: H9_nTE_D3_Io vs. pBAP_D3_Io", fig.width=8, fig.height=14}
-p <- runpce(nTEvsBAP.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
+p <- runpce(nTEvsBAP.up, "overexpressed in H9_nTE_D3_Io", "#C79D2E")
 q <-
-  runpce(nTEvsBAP.down , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+  runpce(nTEvsBAP.down, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
 panel_plot <- plot_grid(p,
                         q,
                         labels = c("A", "B"),
@@ -427,9 +428,9 @@ panel_plot
 
 ### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
 ```{r pce5, fig.cap="Fig 2.5: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <- runpce(nTEvsL40.up , "overexpressed in H9_nTE_D3_Io", "#C79D2E")
+p <- runpce(nTEvsL40.up, "overexpressed in H9_nTE_D3_Io", "#C79D2E")
 q <-
-  runpce(nTEvsL40.down ,
+  runpce(nTEvsL40.down,
          "overexpressed in H1_BAP_D8_<40_Yabe",
          "#AFBF38")
 panel_plot <- plot_grid(p,
@@ -443,9 +444,9 @@ panel_plot
 ### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
 ```{r pce6, fig.cap="Fig 2.6: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <-
-  runpce(nCTvsL40.up , "overexpressed in H9_nCT_P10_Io", "#F16746")
+  runpce(nCTvsL40.up, "overexpressed in H9_nCT_P10_Io", "#F16746")
 q <-
-  runpce(nCTvsL40.down ,
+  runpce(nCTvsL40.down,
          "overexpressed in H1_BAP_D8_<40_Yabe",
          "#AFBF38")
 panel_plot <- plot_grid(p,
@@ -458,9 +459,9 @@ panel_plot
 ### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
 ```{r pce7, fig.cap="Fig 2.7: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <-
-  runpce(BAPvsL40.up , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+  runpce(BAPvsL40.up, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
 q <-
-  runpce(BAPvsL40.down ,
+  runpce(BAPvsL40.down,
          "overexpressed in H1_BAP_D8_<40_Yabe",
          "#AFBF38")
 panel_plot <- plot_grid(p,
@@ -474,11 +475,11 @@ panel_plot
 ### PCE: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
 ```{r pce8, fig.cap="Fig 2.8: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
 p <-
-  runpce(STBvsL40.up ,
+  runpce(STBvsL40.up,
          "overexpressed in H1_BAP_D8_>70_Yabe",
          "#5C823A")
 q <-
-  runpce(STBvsL40.down ,
+  runpce(STBvsL40.down,
          "overexpressed in H1_BAP_D8_<40_Yabe",
          "#AEBD38")
 panel_plot <- plot_grid(p,
@@ -488,12 +489,13 @@ panel_plot <- plot_grid(p,
                         nrow = 2)
 panel_plot
 ```
+
 ### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
 ```{r pce9, fig.cap="Fig 2.9: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
 p <-
-  runpce(BAPvsSTB.up , "overexpressed in H9_pBAP_D3_Io", "#0773B2")
+  runpce(BAPvsSTB.up, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
 q <-
-  runpce(BAPvsSTB.down ,
+  runpce(BAPvsSTB.down,
          "overexpressed in H1_BAP_D8_>70_Yabe",
          "#5C823A")
 panel_plot <- plot_grid(p,
@@ -504,10 +506,9 @@ panel_plot <- plot_grid(p,
 panel_plot
 ```
 
-## Volcano Plot function
+## Volcano plot function
 
-We will setup a funciton for drawing volcano plots and then run them on the DESeq2 results. The funciton is as shown below
-
+We will setup a function for drawing volcano plots and then run them on the DESeq2 results. The function is as shown below.
 
 ```{r volcano}
 mart <-
@@ -516,7 +517,7 @@ mart <-
     sep = "\t",
     stringsAsFactors = TRUE,
     header = TRUE
-  )
+  ) #this object was obtained from Ensembl as we illustrated in "Creating gene lists"
 myVolPlot <- function(restable, first, second, shade1, shade2) {
   restable <- restable[order(restable$padj),]
   outTable <-
@@ -583,7 +584,7 @@ myVolPlot <- function(restable, first, second, shade1, shade2) {
 
 ## Volcano Plots
 
-Running Volcano plots for each comparison is shown below
+Running Volcano plots for each comparison are shown below.
 
 ### Volcano plot: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
 ```{r vol1, fig.cap="Fig 2.10: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
