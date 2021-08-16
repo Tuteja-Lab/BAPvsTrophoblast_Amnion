@@ -1,2 +1,0 @@
-"tegenes"
-"VCT","SPINT2;KRT8"

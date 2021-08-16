@@ -1,2 +1,0 @@
-"tegenes"
-"EVT","FN1;LOXL1;PPP1R14B;MFAP5"

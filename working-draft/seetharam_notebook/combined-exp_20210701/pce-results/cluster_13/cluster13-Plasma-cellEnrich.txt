@@ -1,2 +1,0 @@
-"tegenes"
-"Plasma","PPP1R14B;TCF4"

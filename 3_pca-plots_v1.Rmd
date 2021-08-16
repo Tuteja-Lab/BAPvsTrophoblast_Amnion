@@ -126,7 +126,7 @@ ggplotly(
   )) +
     scale_shape_manual(values = 1:8) +
     theme_bw() +
-    theme(legend.title = element_blank(), legend.position = "none") +
+    theme(legend.title = element_blank()) +
     geom_point(size = 1, stroke = 1) +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance"))
@@ -141,8 +141,8 @@ The `counts` data and its associated metadata (`coldata`) are imported for analy
 
 ```{r import2, warnings=TRUE, message=FALSE}
 setwd("~/github/amnion.vs.other_RNASeq")
-counts2 = 'assets/counts-dotted.tsv'
-groupFile = 'assets/batch-dotted.v2.tsv'
+counts2 = 'assets/counts-dotted.v3.tsv'
+groupFile = 'assets/batch-dotted.v3.tsv'
 coldata2 <-
   read.csv(
     groupFile,
@@ -206,7 +206,7 @@ ggplotly(
   )) +
     scale_shape_manual(values = 1:8) +
     theme_bw() +
-    theme(legend.title = element_blank(), legend.position = "none") +
+    theme(legend.title = element_blank()) +
     geom_point(size = 1, stroke = 1) +
     xlab(paste0("PC1: ", percentVar[1], "% variance")) +
     ylab(paste0("PC2: ", percentVar[2], "% variance"))

@@ -1,2 +1,0 @@
-"tegenes"
-"Epi2","SLC6A6;DEPTOR;ASRGL1"

@@ -1,2 +1,0 @@
-"tegenes"
-"dP2","COL1A2"

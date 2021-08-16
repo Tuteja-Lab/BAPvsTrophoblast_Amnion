@@ -1,2 +1,0 @@
-"tegenes"
-"Endo.L","LAMA4;SPTBN1;EFEMP1;APP;NFIB;CAVIN2"

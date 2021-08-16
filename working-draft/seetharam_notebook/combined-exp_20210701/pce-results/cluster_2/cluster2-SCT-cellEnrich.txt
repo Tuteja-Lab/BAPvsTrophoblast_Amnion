@@ -1,2 +1,0 @@
-"tegenes"
-"SCT","NLRP2;VGLL1"
