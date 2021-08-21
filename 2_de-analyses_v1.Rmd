@@ -40,7 +40,7 @@ This section uses the count data (for selected datasets) generated in Section 1 
 R packages required for this section are loaded
 
 ```{r, warnings=TRUE, message=FALSE}
-setwd("~/github/amnion.vs.other_RNASeq")
+setwd("~/github/BAPvsTrophoblast_Amnion")
 # load the modules
 library(sva)
 library(tidyverse)
@@ -65,8 +65,8 @@ library(biomaRt)
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
-counts = '~/github/amnion.vs.other_RNASeq/assets/counts-subset-v4.txt'
-groupFile = '~/github/amnion.vs.other_RNASeq/assets/batch-subset-v4.txt'
+counts = '~/github/BAPvsTrophoblast_Amnion/assets/counts-subset-v4.txt'
+groupFile = '~/github/BAPvsTrophoblast_Amnion/assets/batch-subset-v4.txt'
 coldata <-
   read.csv(
     groupFile,
@@ -175,7 +175,7 @@ res.STBvsL40 <- results(dds,
                           ))
 ```
 
-The following function is to save DESeq2 results as well as generate variable to hold the gene lists for running PCE later on.
+The following function is to save DESeq2 results as well as generate variables to hold the gene lists for running PCE later on.
 
 ```{r deseq2funx, warnings=TRUE, message=FALSE}
 processDE <- function(restable, fileName) {
@@ -217,7 +217,7 @@ processDE(res.BAPvsSTB, "BAPvsSTB")
 
 ## Creating gene lists
 
-The gene lists have Ensembl gene ID version. We need them in just gene IDs. We also need other metadata later for these lists.
+The gene lists have Ensembl gene-ID-version. We need them as gene-IDs. We also need other metadata later for these lists.
 From Ensembl we will download metadata and attach to these lists.
 
 ```{r annotations, warnings=TRUE, message=FALSE}
@@ -385,7 +385,7 @@ panel_plot
 
 ```{r pce2, fig.cap="Fig 2.2: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
 p <-
-  runpce(nCTvsSTB.up, "overexpressed in H9_nCT_P10_Io)", "#F16746")
+  runpce(nCTvsSTB.up, "overexpressed in H9_nCT_P10_Io", "#F16746")
 q <-
   runpce(nCTvsSTB.down,
          "overexpressed in H1_BAP_D8_>70_Yabe",

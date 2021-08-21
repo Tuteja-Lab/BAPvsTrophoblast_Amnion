@@ -40,7 +40,7 @@ This section uses the count data (all datasets) generated in Section 1 for clust
 R packages required for this section are loaded.
 
 ```{r, warnings=TRUE, message=FALSE}
-setwd("~/github/amnion.vs.other_RNASeq")
+setwd("~/github/BAPvsTrophoblast_Amnion")
 library(sva)
 library(tidyverse)
 library(DESeq2)
@@ -133,14 +133,14 @@ ggplotly(
 )
 ```
 
-# PCA plot for differenticated cell libraries
+# PCA plot for diifferentiated cell libraries
 
 ## Import datasets
 
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r import2, warnings=TRUE, message=FALSE}
-setwd("~/github/amnion.vs.other_RNASeq")
+setwd("~/github/BAPvsTrophoblast_Amnion")
 counts2 = 'assets/counts-dotted.tsv'
 groupFile = 'assets/batch-dotted.v2.tsv'
 coldata2 <-
@@ -159,7 +159,7 @@ Inspect the `coldata`.
 DT::datatable(coldata2)
 ```
 
-Reorder columns of `cts` according to `coldata` rows. Check if samples in both files matches.
+Reorder columns of `cts` according to `coldata` rows. Check if samples in both files match.
 ```{r order2}
 all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
@@ -197,7 +197,7 @@ percentVar <- round(100 * attr(pcaData, "percentVar"))
 
 ## PCA plot (differenticated)
 
-```{r PCAplotDiffer, fig.cap="Fig 3.2: PCA plots (differenticated)", fig.width=8, fig.height=8}
+```{r PCAplotDiffer, fig.cap="Fig 3.2: PCA plots (differentiated)", fig.width=8, fig.height=8}
 ggplotly(
   ggplot(pcaData, aes(
     PC1, PC2, color = group.1, shape = authors

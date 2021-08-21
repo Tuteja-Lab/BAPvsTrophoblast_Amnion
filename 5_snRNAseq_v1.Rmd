@@ -33,14 +33,14 @@ knitr::opts_knit$set(width = 75)
 
 ## snRNAseq analysis
 
-This section uses snRNA-seq BAP.d8 dataset (Khan et. al.,) and nTE/nCT dataset (Io et. al.,) to run sn and scRNA-seq analyses with Seurat. Briefly, the count data are imported into R as a Seurat object,; samples are integrated, transformed, and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
+This section uses snRNA-seq BAP.d8 dataset ([_Khan_ et. al.,](https://www.frontiersin.org/articles/10.3389/fcell.2021.695248/full) [GSE171768](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE171768)) and nTE/nCT dataset ([_Io_ et. al.,](https://pubmed.ncbi.nlm.nih.gov/33831365/) [GSE167924](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167924)) to run sn and scRNA-seq analyses with Seurat. Briefly, the count data are imported into R as a Seurat object, samples are integrated, transformed, and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
 
 ## Prerequisites
 
 R packages required for this section are loaded.
 
 ```{r package, warnings=TRUE, message=FALSE}
-setwd("~/github/amnion.vs.other_RNASeq")
+setwd("~/github/BAPvsTrophoblast_Amnion")
 library(Seurat)
 library(SeuratWrappers)
 library(knitr)
@@ -136,8 +136,8 @@ metadata <- metadata %>%
 mt <-
   ggplot(dat = metadata, aes(x = nUMI, y = nGene, color = mitoRatio)) +
   geom_point(alpha = 0.5) +
-  scale_colour_gradient(low = "gray90", high = "black") + labs(colour =
-                                                                 "MT ratio") +
+  scale_colour_gradient(low = "gray90", high = "black") +
+  labs(colour = "MT ratio") +
   theme_bw(base_size = 12) +
   theme(
     panel.grid.major = element_blank(),
@@ -147,7 +147,7 @@ mt <-
   ) +
   xlab("RNA counts") + ylab("Gene counts") +
   stat_smooth(method = lm) +
-  facet_wrap( ~ seq_folder, labeller = labeller(
+  facet_wrap(~ seq_folder, labeller = labeller(
     seq_folder =
       c(
         "20pcO2_r1" = "20% Oxygen (rep1)",
@@ -335,7 +335,7 @@ panel_plot <-
   )
 panel_plot
 ```
-### Removing ribosomal and MT proteins
+### Removing ribosomal and MT transcripts
 
 ```{r cleanData, warnings=TRUE, message=FALSE}
 counts <- GetAssayData(object = bapd8.combined, slot = "counts")
@@ -414,18 +414,18 @@ VizDimLoadings(bapd8.integrated, dims = 1:4, reduction = "pca")
 
 #### Optimization: Determine data dimensionality
 
-```{r optimization2, fig.cap="Fig 5.10: Data Dimensionality. (A) Elbow plot showing the rankings of PC (first 20) in the PCA (B) JackStraw plot showing the distribution of p-values for each PC (first 20 shown) in the PCA", fig.width=8, fig.height=6}
+```{r optimization2, fig.cap="Fig 5.10: Data Dimensionality. (A) Elbow plot showing the rankings of PC (first 20) in the PCA (B) JackStraw plot showing the distribution of p-values for each PC (first 20 shown) in the PCA", fig.width=8, fig.height=10}
 bapd8.integrated <- JackStraw(bapd8.integrated, num.replicate = 100)
 bapd8.integrated <- ScoreJackStraw(bapd8.integrated, dims = 1:20)
 elbow <- ElbowPlot(bapd8.integrated)
 jack <- JackStrawPlot(bapd8.integrated, dims = 1:20)
-panel_plot <- plot_grid(elbow, jack, labels = c('A', 'B'), ncol = 2)
+panel_plot <- plot_grid(elbow, jack, labels = c('A', 'B'), ncol = 1)
 panel_plot
 ```
 
 ### Renumber the clusters
 
-By default the clusters are numbers 0-12, we need them as 1-13.
+By default the clusters are numbered 0-12, we need them as 1-13.
 
 ```{r renumber, warnings=TRUE, message=FALSE}
 df <- bapd8.integrated@meta.data
@@ -593,8 +593,8 @@ ggplotly(A)
 
 ### Finding cluster markers
 
-Cluster markers are defined as fold chance of >= 1.5 and p-value (adj) <= 0.05.
-We will find all markers of for each cluster with a loop.
+Cluster markers are defined as fold change of >= 1.5 and p-value (adj) <= 0.05.
+We will find all markers for each cluster with a loop.
 
 ```{r markers, warnings=TRUE, message=FALSE}
 DefaultAssay(bapd8.integrated) <- "RNA"
@@ -944,7 +944,7 @@ panel_plot
 #### Cluster 8
 
 ```{r cluster8, fig.cap="Fig 5.21: Cluster 8 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 8, color_list[8])
+pce <- runpce(cluster.marker.names.8, 8, color_list[8])
 count <- mybarplot(Cluster_8, 8)
 violin <- grouped_violinPlots(cluster.marker.names.8, 8)
 toprow <-
@@ -962,7 +962,7 @@ panel_plot
 #### Cluster 9
 
 ```{r cluster9, fig.cap="Fig 5.22: Cluster 9 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 9, color_list[9])
+pce <- runpce(cluster.marker.names.9, 9, color_list[9])
 count <- mybarplot(Cluster_9, 9)
 violin <- grouped_violinPlots(cluster.marker.names.9, 9)
 toprow <-
@@ -980,7 +980,7 @@ panel_plot
 #### Cluster 10
 
 ```{r cluster10, fig.cap="Fig 5.23: Cluster 10 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 10, color_list[10])
+pce <- runpce(cluster.marker.names.10, 10, color_list[10])
 count <- mybarplot(Cluster_10, 10)
 violin <- grouped_violinPlots(cluster.marker.names.10, 10)
 toprow <-
@@ -998,7 +998,7 @@ panel_plot
 #### Cluster 11
 
 ```{r cluster11, fig.cap="Fig 5.24: Cluster 11 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 11, color_list[11])
+pce <- runpce(cluster.marker.names.11, 11, color_list[11])
 count <- mybarplot(Cluster_11, 11)
 violin <- grouped_violinPlots(cluster.marker.names.11, 11)
 toprow <-
@@ -1016,7 +1016,7 @@ panel_plot
 #### Cluster 12
 
 ```{r cluster12, fig.cap="Fig 5.25: Cluster 12 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 12, color_list[12])
+pce <- runpce(cluster.marker.names.12, 12, color_list[12])
 count <- mybarplot(Cluster_12, 12)
 violin <- grouped_violinPlots(cluster.marker.names.12, 12)
 toprow <-
@@ -1034,7 +1034,7 @@ panel_plot
 #### Cluster 13
 
 ```{r cluster13, fig.cap="Fig 5.26: Cluster 13 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 13, color_list[13])
+pce <- runpce(cluster.marker.names.13, 13, color_list[13])
 count <- mybarplot(Cluster_13, 13)
 violin <- grouped_violinPlots(cluster.marker.names.13, 13)
 toprow <-
@@ -1052,7 +1052,7 @@ panel_plot
 
 ### Comparing STB genes 
 
-Syncytiotrophoblast (STB) was enriched in Cluster 6 and Cluster 8. We will see the expression of the genes in Zohou et. al., dataset.
+Syncytiotrophoblast (STB) was enriched in Cluster 6 and Cluster 8. We will see the expression of the genes in [Zhou et. al.](https://pubmed.ncbi.nlm.nih.gov/31435013), dataset ([GSE109555](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109555)).
 
 #### PCE function to extract STB genes
 

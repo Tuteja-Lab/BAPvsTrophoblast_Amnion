@@ -40,7 +40,7 @@ This section uses the count data (selected datasets) generated in Section 1 for 
 R packages required for this section are loaded.
 
 ```{r, warnings=TRUE, message=FALSE}
-setwd("~/github/amnion.vs.other_RNASeq")
+setwd("~/github/BAPvsTrophoblast_Amnion")
 library(sva)
 library(tidyverse)
 library(DESeq2)
