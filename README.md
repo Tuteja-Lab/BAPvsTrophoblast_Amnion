@@ -3,6 +3,8 @@
 
 ### Documentation
 
+**The HTML version of this documentation is available [here](https://tuteja-lab.github.io/BAPvsTrophoblast_Amnion)**
+
 1. [Section 1: preapring datasets for anlayses](1_input-data-prep_v1.html)
 2. Section 2: DESeq2 analyses
 3. Section 3: PCA plots for the datasets
