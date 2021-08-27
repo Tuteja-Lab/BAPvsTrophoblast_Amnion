@@ -71,7 +71,7 @@ Syncytiotrophoblast (STB) genes expression were tested against [Zhou et. al.](ht
 
 ### Contacts
 1. Project related questions: Geetu Tuteja
-2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/BAP.hESC.d8_snRNAseq/issues/new) here on GitHub.
+2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/BAPvsTrophoblast_Amnion/issues/new) here on GitHub.
 
 
 ### Publication
