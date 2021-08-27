@@ -1,15 +1,16 @@
 # BAPvsTrophoblast_Amnion
 ## [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Ames IA-50011
 
+
+**The HTML version of this documentation is available [here](https://tuteja-lab.github.io/BAPvsTrophoblast_Amnion)**: 
+
 ### Documentation
 
-**The HTML version of this documentation is available [here](https://tuteja-lab.github.io/BAPvsTrophoblast_Amnion)**
-
-1. [Section 1: preapring datasets for anlayses](1_input-data-prep_v1.html)
-2. Section 2: DESeq2 analyses
-3. Section 3: PCA plots for the datasets
-4. Section 4: Heatmaps for amnion genes
-5. Section 5: sn/scRNAseq data analyses
+1. [Section 1: preapring datasets for anlayses](1_input-data-prep_v1.Rmd)
+2. [Section 2: DESeq2 analyses](2_de-analyses_v1.Rmd)
+3. [Section 3: PCA plots for the datasets](3_pca-plots_v1.Rmd)
+4. [Section 4: Heatmaps for amnion genes](4_heatmaps_v1.Rmd)
+5. [Section 5: sn/scRNAseq data analyses](5_snRNAseq_v1.Rmd)
 
 ### Data availability
 
