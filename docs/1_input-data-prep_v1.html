@@ -304,7 +304,7 @@
 <span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  cut <span class="at">-f</span> 9 <span class="kw">|</span><span class="dt">\</span></span>
 <span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  awk <span class="st">&#39;$4 ~ /protein_coding/ {print $2}&#39;</span><span class="kw">|</span><span class="dt">\</span></span>
 <span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  sed <span class="at">-e</span> <span class="st">&#39;s/&quot;;//g&#39;</span> <span class="at">-e</span> sed <span class="st">&#39;s/&quot;//g&#39;</span> <span class="op">&gt;</span> gene.ids</span>
-<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">#filter coutns to retain only counts for geneids</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">#filter counts to retain only counts for geneids</span></span>
 <span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-Fw</span> <span class="at">-f</span> gene.ids counts-full.txt <span class="op">&gt;</span> coding-counts.txt</span>
 <span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="co"># organize folders</span></span>
 <span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="bu">read</span> <span class="va">a</span> <span class="va">b</span><span class="kw">;</span> <span class="cf">do</span></span>
@@ -339,7 +339,7 @@
 </div>
 <div id="subset-counts" class="section level2">
 <h2>Subset counts</h2>
-<p>Using the <code>srr-to-labels.txt</code> file, the SRR numbers in the master coutns file were converted to informative names. From this master counts table, subset datasets were derived using the cut command.</p>
+<p>Using the <code>srr-to-labels.txt</code> file, the SRR numbers in the master counts file were converted to informative names. From this master counts table, subset datasets were derived using the cut command.</p>
 <div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> coding-counts.txt coding-counts-renamed.txt</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="bu">read</span> <span class="va">a</span> <span class="va">b</span><span class="kw">;</span> <span class="cf">do</span></span>
 <span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sed</span> <span class="at">-i</span> <span class="st">&#39;s/&#39;</span><span class="va">$a</span><span class="st">&#39;/&#39;</span><span class="va">$b</span><span class="st">&#39;/g&#39;</span> coding-counts-renamed.txt</span>
