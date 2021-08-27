@@ -6,7 +6,7 @@
     <meta name="generator" content="pandoc" />
 
     
-        <meta name="date" content="2021-08-20" />
+        <meta name="date" content="2021-08-27" />
     
     <title>Section 1: Pre-processing</title>
 
@@ -200,7 +200,7 @@
 		      </p>
                         <p class="author"><span class="glyphicon glyphicon-user"></span> Ha Vu
 		<br /><span class="author_affil">Tuteja Lab</span>	      </p>
-                        <p class="date"><span class="glyphicon glyphicon-calendar"></span> 2021-08-20</p>
+                        <p class="date"><span class="glyphicon glyphicon-calendar"></span> 2021-08-27</p>
           </div>
    </div>
      
@@ -287,25 +287,52 @@
 <span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">tail</span> <span class="at">-n</span> +5 <span class="va">$f</span> <span class="kw">|</span> <span class="fu">cut</span> <span class="at">-f1,4</span> <span class="op">&gt;&gt;</span> <span class="va">${g}</span>_counts.txt<span class="kw">;</span></span>
 <span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span>
 <span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="ex">join_files.sh</span> <span class="pp">*</span>_counts.txt <span class="kw">|</span> <span class="fu">grep</span> <span class="at">-v</span> <span class="st">&quot;_counts.txt&quot;</span> <span class="kw">|</span> <span class="fu">sort</span> <span class="at">-k1,1</span> <span class="op">&gt;</span> counts-full.txt</span>
-<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># to do</span></span>
-<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="co"># filter to retain only coding-genes</span></span>
-<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="co"># rename SRR ids with info</span></span>
-<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a><span class="co"># running multiqc</span></span></code></pre></div>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co"># get geneids (protein coding only) from GTF file</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="va">gtf=</span>gencode.v37.basic.annotation.gtf</span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a><span class="fu">awk</span> <span class="st">&#39;$3==&quot;gene&quot;&#39;</span> <span class="va">$gtf</span> <span class="kw">|</span><span class="dt">\</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>  cut <span class="at">-f</span> 9 <span class="kw">|</span><span class="dt">\</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>  awk <span class="st">&#39;$4 ~ /protein_coding/ {print $2}&#39;</span><span class="kw">|</span><span class="dt">\</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  sed <span class="at">-e</span> <span class="st">&#39;s/&quot;;//g&#39;</span> <span class="at">-e</span> sed <span class="st">&#39;s/&quot;//g&#39;</span> <span class="op">&gt;</span> gene.ids</span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a><span class="co">#filter coutns to retain only counts for geneids</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-Fw</span> <span class="at">-f</span> gene.ids counts-full.txt <span class="op">&gt;</span> coding-counts.txt</span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="co"># organize folders</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="bu">read</span> <span class="va">a</span> <span class="va">b</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mkdir</span> <span class="at">-p</span> <span class="va">${b}</span><span class="kw">;</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  <span class="fu">mv</span> <span class="va">${a}</span>_<span class="pp">*</span> <span class="va">${b}</span>/<span class="kw">;</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span><span class="op">&lt;</span>needed-sra.txt</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a><span class="co"># rename folders:</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a><span class="fu">mv</span> E-MTAB-10429 E-MTAB-10429_Sheridan</span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="fu">mv</span> PRJNA276463 PRJNA276463_Roost</span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a><span class="fu">mv</span> PRJNA294733 PRJNA294733_Yabe</span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a><span class="fu">mv</span> PRJNA316992 PRJNA316992_Suzuki</span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a><span class="fu">mv</span> PRJNA352339 PRJNA352339_Shao</span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a><span class="fu">mv</span> PRJNA605646 PRJNA605646_Io</span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a><span class="co"># run mulitqc</span></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a><span class="cf">for</span> dir <span class="kw">in</span> E-MTAB-10429_Sheridan PRJ<span class="pp">*</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>  <span class="bu">cd</span> <span class="va">$dir</span><span class="kw">;</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>  <span class="ex">multiqc</span> .<span class="kw">;</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a>  <span class="fu">cp</span> multiqc_report.html ../<span class="va">${f}</span>_multiqc.html<span class="kw">;</span></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>  <span class="bu">cd</span> ..</span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span></code></pre></div>
 <div id="multiqc-reports" class="section level3">
 <h3>MultiQC reports:</h3>
 <ol style="list-style-type: decimal">
-<li><a href="assets/E-MTAB-10429_Sheridan_multiqc.html">Sheridan et .al.,</a></li>
-<li><a href="assets/PRJNA276463_Roost_multiqc.html">Roost et .al.,</a></li>
-<li><a href="assets/PRJNA294733_Yabe_multiqc.html">Yabe et .al.,</a></li>
-<li><a href="assets/PRJNA316992_Suzuki_multiqc.html">Suzuki et .al.,</a></li>
-<li><a href="assets/PRJNA352339_Shao_multiqc.html">Shao et .al.,</a></li>
-<li><a href="assets/PRJNA605646_Io_multiqc.html">Io et .al.,</a></li>
+<li><a href="/assets/E-MTAB-10429_Sheridan_multiqc.html">Sheridan et .al.,</a></li>
+<li><a href="/assets/PRJNA276463_Roost_multiqc.html">Roost et .al.,</a></li>
+<li><a href="/assets/PRJNA294733_Yabe_multiqc.html">Yabe et .al.,</a></li>
+<li><a href="/assets/PRJNA316992_Suzuki_multiqc.html">Suzuki et .al.,</a></li>
+<li><a href="/assets/PRJNA352339_Shao_multiqc.html">Shao et .al.,</a></li>
+<li><a href="/assets/PRJNA605646_Io_multiqc.html">Io et .al.,</a></li>
 </ol>
 </div>
 </div>
 <div id="subset-counts" class="section level2">
 <h2>Subset counts</h2>
-<p>to do: show how different datasets were derived.</p>
+<p>Using the <code>srr-to-labels.txt</code> file, the SRR numbers in the master coutns file were converted to informative names. From this master counts table, subset datasets were derived using the cut command.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cp</span> coding-counts.txt coding-counts-renamed.txt</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="cf">while</span> <span class="bu">read</span> <span class="va">a</span> <span class="va">b</span><span class="kw">;</span> <span class="cf">do</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">sed</span> <span class="at">-i</span> <span class="st">&#39;s/&#39;</span><span class="va">$a</span><span class="st">&#39;/&#39;</span><span class="va">$b</span><span class="st">&#39;/g&#39;</span> coding-counts-renamed.txt</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span><span class="op">&lt;</span>srr-to-labels.txt</span></code></pre></div>
 </div>
 </div>
 

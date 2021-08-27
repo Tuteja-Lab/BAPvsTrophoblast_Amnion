@@ -131,23 +131,55 @@ echo -e "AA_geneids\t$g" > ${g}_counts.txt;
 tail -n +5 $f | cut -f1,4 >> ${g}_counts.txt;
 done
 join_files.sh *_counts.txt | grep -v "_counts.txt" | sort -k1,1 > counts-full.txt
-# to do
-# filter to retain only coding-genes
-# rename SRR ids with info
-# running multiqc
+# get geneids (protein coding only) from GTF file
+gtf=gencode.v37.basic.annotation.gtf
+awk '$3=="gene"' $gtf |\
+  cut -f 9 |\
+  awk '$4 ~ /protein_coding/ {print $2}'|\
+  sed -e 's/";//g' -e sed 's/"//g' > gene.ids
+#filter coutns to retain only counts for geneids
+grep -Fw -f gene.ids counts-full.txt > coding-counts.txt
+# organize folders
+while read a b; do
+  mkdir -p ${b};
+  mv ${a}_* ${b}/;
+done<needed-sra.txt
+# rename folders:
+mv E-MTAB-10429 E-MTAB-10429_Sheridan
+mv PRJNA276463 PRJNA276463_Roost
+mv PRJNA294733 PRJNA294733_Yabe
+mv PRJNA316992 PRJNA316992_Suzuki
+mv PRJNA352339 PRJNA352339_Shao
+mv PRJNA605646 PRJNA605646_Io
+# run mulitqc
+for dir in E-MTAB-10429_Sheridan PRJ*; do
+  cd $dir;
+  multiqc .;
+  cp multiqc_report.html ../${f}_multiqc.html;
+  cd ..
+done
 ```
 ### MultiQC reports:
 
-1. [Sheridan et .al.,](assets/E-MTAB-10429_Sheridan_multiqc.html)
-2. [Roost et .al.,](assets/PRJNA276463_Roost_multiqc.html)
-3. [Yabe et .al.,](assets/PRJNA294733_Yabe_multiqc.html)
-4. [Suzuki et .al.,](assets/PRJNA316992_Suzuki_multiqc.html)
-5. [Shao et .al.,](assets/PRJNA352339_Shao_multiqc.html)
-6. [Io et .al.,](assets/PRJNA605646_Io_multiqc.html)
+1. [Sheridan et .al.,](/assets/E-MTAB-10429_Sheridan_multiqc.html)
+2. [Roost et .al.,](/assets/PRJNA276463_Roost_multiqc.html)
+3. [Yabe et .al.,](/assets/PRJNA294733_Yabe_multiqc.html)
+4. [Suzuki et .al.,](/assets/PRJNA316992_Suzuki_multiqc.html)
+5. [Shao et .al.,](/assets/PRJNA352339_Shao_multiqc.html)
+6. [Io et .al.,](/assets/PRJNA605646_Io_multiqc.html)
 
 
 ## Subset counts
 
-to do: show how different datasets were derived.
+Using the `srr-to-labels.txt` file, the SRR numbers in the master coutns file were converted to informative names. From this master counts table, subset datasets were derived using the cut command.
+
+```{bash, eval=FALSE, engine="sh"} 
+cp coding-counts.txt coding-counts-renamed.txt
+while read a b; do
+  sed -i 's/'$a'/'$b'/g' coding-counts-renamed.txt
+done<srr-to-labels.txt
+```
+
+
 
 
