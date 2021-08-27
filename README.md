@@ -3,7 +3,7 @@
 
 ### Documentation
 
-1. Section 1: preapring datasets for anlayses
+1. [Section 1: preapring datasets for anlayses](1_input-data-prep_v1.html)
 2. Section 2: DESeq2 analyses
 3. Section 3: PCA plots for the datasets
 4. Section 4: Heatmaps for amnion genes
