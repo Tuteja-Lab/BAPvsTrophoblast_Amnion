@@ -161,12 +161,12 @@ done
 ```
 ### MultiQC reports:
 
-1. [Sheridan et .al.,](/assets/E-MTAB-10429_Sheridan_multiqc.html)
-2. [Roost et .al.,](/assets/PRJNA276463_Roost_multiqc.html)
-3. [Yabe et .al.,](/assets/PRJNA294733_Yabe_multiqc.html)
-4. [Suzuki et .al.,](/assets/PRJNA316992_Suzuki_multiqc.html)
-5. [Shao et .al.,](/assets/PRJNA352339_Shao_multiqc.html)
-6. [Io et .al.,](/assets/PRJNA605646_Io_multiqc.html)
+1. [Sheridan et .al.,](E-MTAB-10429_Sheridan_multiqc.html)
+2. [Roost et .al.,](PRJNA276463_Roost_multiqc.html)
+3. [Yabe et .al.,](PRJNA294733_Yabe_multiqc.html)
+4. [Suzuki et .al.,](PRJNA316992_Suzuki_multiqc.html)
+5. [Shao et .al.,](PRJNA352339_Shao_multiqc.html)
+6. [Io et .al.,](PRJNA605646_Io_multiqc.html)
 
 
 ## Subset counts
