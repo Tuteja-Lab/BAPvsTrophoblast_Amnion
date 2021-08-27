@@ -6,7 +6,7 @@
 
 ### Documentation
 
-1. [Section 1: preapring datasets for anlayses](1_input-data-prep_v1.Rmd)
+1. [Section 1: Preparing datasets for anlayses](1_input-data-prep_v1.Rmd)
 2. [Section 2: DESeq2 analyses](2_de-analyses_v1.Rmd)
 3. [Section 3: PCA plots for the datasets](3_pca-plots_v1.Rmd)
 4. [Section 4: Heatmaps for amnion genes](4_heatmaps_v1.Rmd)
