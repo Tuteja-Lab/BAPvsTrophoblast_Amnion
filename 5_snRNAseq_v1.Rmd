@@ -66,6 +66,7 @@ library(pheatmap)
 library(scales)
 library(plotly)
 library(R.utils)
+library(biomaRt)
 ```
 
 ## Import datasets
@@ -755,25 +756,51 @@ grouped_violinPlots <-
 
 Load the PCE data
 
-```{r pceData, warnings=TRUE, message=FALSE} 
+```{r pceimport}
+# Vento-Tormo et al., dataset
 l <-
-  load(file = "~/TutejaLab/PlacentaEnrich/combine-test-expression1.Rdata")
+  load(file = "assets/combine-test-expression1.Rdata")
 humanGeneMapping <- dataset$GRCH38$humanGeneMapping
 d <- dataset$PlacentaDeciduaBloodData
 data <- d$expressionData
 cellDetails <- d$cellDetails
+
+# Xiang et al., dataset
+te.dataset.xiang <- readRDS("assets/te.dataset.xiang.rds")
+
+# Castel et al., dataset
+te.dataset.castel <- readRDS("assets/te.dataset.castel.rds")
+
+# full names for cell types
+    xi.md <-
+  read.csv(
+    "assets/md-xi.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+vt.md <-
+  read.csv(
+    "assets/md-vt.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+zp.md <-
+  read.csv(
+    "assets/md-zp.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+
 ```
 
-Function for running/plotting the PCE.
 
-```{r pceFunction, warnings=TRUE, message=FALSE} 
-runpce <- function(inputgenelist, clusternumber, shade) {
-  inputGenes <- toupper(inputgenelist)
-  humanGene <-
-    humanGeneMapping[humanGeneMapping$Gene.name %in% inputGenes, ]
-  inputGenes <- humanGene$Gene
+```{r pcefunction}
+runpce <- function(geneList1, geneList2, filename, barcolor) {
   expressionData <-
-    data[intersect(row.names(data), humanGeneMapping$Gene), ]
+    data[intersect(row.names(data), humanGeneMapping$Gene),]
   se <-
     SummarizedExperiment(
       assays = SimpleList(as.matrix(expressionData)),
@@ -782,41 +809,150 @@ runpce <- function(inputgenelist, clusternumber, shade) {
     )
   cellSpecificGenesExp <-
     teGeneRetrieval(se, expressedGeneThreshold = 1)
-  print(length(inputGenes))
-  gs <- GeneSet(geneIds = toupper(inputGenes))
-  output2 <- teEnrichmentCustom(gs, cellSpecificGenesExp)
-  enrichmentOutput <-
-    setNames(data.frame(assay(output2[[1]]), row.names = rowData(output2[[1]])[, 1]),
-             colData(output2[[1]])[, 1])
+  print(length(geneList1))
+  gs.vt <- GeneSet(geneIds = toupper(geneList1))
+  output.vt <- teEnrichmentCustom(gs.vt, cellSpecificGenesExp)
+  en.output.vt <-
+    setNames(data.frame(assay(output.vt[[1]]), row.names = rowData(output.vt[[1]])[, 1]),
+             colData(output.vt[[1]])[, 1])
   row.names(cellDetails) <- cellDetails$RName
-  enrichmentOutput$Tissue <-
-    cellDetails[row.names(enrichmentOutput), "CellName"]
-  
-  ggplot(data = enrichmentOutput,
-         mapping = aes(x = reorder (Tissue,-Log10PValue), Log10PValue)) +
-    geom_bar(stat = "identity",
-             color = shade,
-             fill = shade) + theme_classic(base_size = 10) +
+  en.output.vt$Tissue <-
+    cellDetails[row.names(en.output.vt), "CellName"]
+  gs <- GeneSet(unique(geneList2))
+  output.xi <- teEnrichmentCustom(gs, te.dataset.xiang)
+  output.zp <- teEnrichmentCustom(gs, te.dataset.castel)
+  en.output.xi <-
+    setNames(data.frame(assay(output.xi[[1]]), row.names = rowData(output.xi[[1]])[, 1]),
+             colData(output.xi[[1]])[, 1])
+  en.output.xi$Tissue <- rownames(en.output.xi)
+  en.output.zp <-
+    setNames(data.frame(assay(output.zp[[1]]), row.names = rowData(output.zp[[1]])[, 1]),
+             colData(output.zp[[1]])[, 1])
+  en.output.zp$Tissue <- rownames(en.output.zp)
+  en.output.zp$source <- "ZP"
+  en.output.zp <- en.output.zp[order(-en.output.zp$Log10PValue), ]
+  en.output.zp <-
+    merge(en.output.zp, zp.md, by = "row.names", all.x = TRUE)
+  en.output.zp <- rownames_to_column(en.output.zp, var = "Name")
+  en.output.vt$source <- "VT"
+  en.output.vt <- en.output.vt[order(-en.output.vt$Log10PValue), ]
+  en.output.vt <-
+    merge(en.output.vt, vt.md, by = "row.names", all.x = TRUE)
+  en.output.vt <- rownames_to_column(en.output.vt, var = "Name")
+  en.output.xi$source <- "Xi"
+  en.output.xi <- en.output.xi[order(-en.output.xi$Log10PValue), ]
+  en.output.xi <-
+    merge(en.output.xi, xi.md, by = "row.names", all.x = TRUE)
+  en.output.xi <- rownames_to_column(en.output.xi, var = "Name")
+  en.conbined <- rbind(en.output.vt, en.output.xi, en.output.zp)
+  p <- 0.05
+  logp <- -log10(p)
+  en.conbined <-  en.conbined %>%
+    mutate(Log10PValue = replace(Log10PValue, Log10PValue < logp, 0))
+  en.conbined %>%
+    group_by(source) %>%
+    arrange(source, desc(Log10PValue)) %>% dplyr::slice(1:7)  %>%
+    ungroup %>%
+    mutate(
+      source = as.factor(source),
+      CellNames = tidytext::reorder_within(CellNames, Log10PValue, source, sep = ":")
+    ) %>%
+    ggplot(aes(CellNames, Log10PValue)) + geom_bar(stat = 'identity', fill = barcolor) +  theme_minimal() +
     theme(
       axis.text.x = element_text(
-        angle = 45,
         vjust = 1,
         hjust = 1,
-        size = 10
+        size = 12
       ),
-      plot.margin = unit(c(1, 1, 1, 3), "cm")
-    ) +
-    ggtitle(paste0("Cluster ", clusternumber, " PCE")) +
-    ylab("-log10 p-value (adj.)") +
-    xlab("") +
-    scale_y_continuous(expand = expansion(mult = c(0, .1)))
+      axis.text.y = element_text(size = 12),
+      plot.margin = margin(10, 10, 10, 100),
+      legend.position = "none",
+      plot.title = element_text(
+        color = "black",
+        size = 18,
+        face = "bold.italic"
+      ),
+      axis.title.y = element_blank(),
+      axis.line.x = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.ticks.x = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.title.x = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      )
+    )  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks()) +
+    facet_wrap(~ source, scales = "free", ncol = 3) +
+    coord_flip()
 }
+```
+## Converting Gene IDs
+
+For PCE analyses we need to covert gene symbols to ENS ids. We need the conversion table, a function to convert marker list and run this function on each cluster markers. 
+```{r annotations, warnings=TRUE, message=FALSE}
+ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+listDatasets(ensembl) %>%
+  filter(str_detect(description, "Human"))
+ensembl = useDataset("hsapiens_gene_ensembl", mart = ensembl)
+listFilters(ensembl) %>%
+  filter(str_detect(name, "ensembl"))
+filterType <- "ensembl_gene_id_version"
+cts <- as.matrix(read.csv('assets/counts-subset-v5.txt', sep = "\t", row.names = "gene.ids"))
+filterValues <- rownames(cts)
+listAttributes(ensembl) %>%
+  head(20)
+attributeNames <- c('ensembl_gene_id_version',
+                    'ensembl_gene_id',
+                    'external_gene_name')
+annot <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+isDup <- duplicated(annot$ensembl_gene_id)
+dup <- annot$ensembl_gene_id[isDup]
+annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
+```
+```{r convertFun, warnings=TRUE, message=FALSE}
+symbols.to.ensembl <- function(genesymbols) {
+  newlist <- paste0(deparse(substitute(genesymbols)), ".ensids") 
+  temp <- annot[annot$external_gene_name %in% genesymbols,]
+  temp <- temp[c(2,3)]
+  assign(newlist, temp, envir = .GlobalEnv)
+}
+```
+
+```{r convert, warnings=TRUE, message=FALSE}
+symbols.to.ensembl(cluster.marker.names.1)
+symbols.to.ensembl(cluster.marker.names.2)
+symbols.to.ensembl(cluster.marker.names.3)
+symbols.to.ensembl(cluster.marker.names.4)
+symbols.to.ensembl(cluster.marker.names.5)
+symbols.to.ensembl(cluster.marker.names.6)
+symbols.to.ensembl(cluster.marker.names.7)
+symbols.to.ensembl(cluster.marker.names.8)
+symbols.to.ensembl(cluster.marker.names.9)
+symbols.to.ensembl(cluster.marker.names.10)
+symbols.to.ensembl(cluster.marker.names.11)
+symbols.to.ensembl(cluster.marker.names.12)
+symbols.to.ensembl(cluster.marker.names.13)
 ```
 ### Run analyses on each cluster
 
 #### Cluster 1
-```{r cluster1, fig.cap="Fig 5.14: Cluster 1 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.1, 1, color_list[1])
+
+```{r cluster1, fig.cap="Fig 5.14: Cluster 1 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+
+pce <- runpce(cluster.marker.names.1.ensids$ensembl_gene_id, cluster.marker.names.1, "Cluster_1_allPCE", color_list[1])
 count <- mybarplot(Cluster_1, 1)
 violin <- grouped_violinPlots(cluster.marker.names.1, 1)
 toprow <-
@@ -825,17 +961,19 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 
 #### Cluster 2
 
-```{r cluster2, fig.cap="Fig 5.15: Cluster 2 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.2, 2, color_list[2])
+```{r cluster2, fig.cap="Fig 5.15: Cluster 2 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.2.ensids$ensembl_gene_id, cluster.marker.names.2, "Cluster_2_allPCE", color_list[2])
 count <- mybarplot(Cluster_2, 2)
 violin <- grouped_violinPlots(cluster.marker.names.2, 2)
 toprow <-
@@ -844,17 +982,19 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 
 #### Cluster 3
 
-```{r cluster3, fig.cap="Fig 5.16: Cluster 3 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.3, 3, color_list[3])
+```{r cluster3, fig.cap="Fig 5.16: Cluster 3 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.3.ensids$ensembl_gene_id, cluster.marker.names.3, "Cluster_3_allPCE", color_list[3])
 count <- mybarplot(Cluster_3, 3)
 violin <- grouped_violinPlots(cluster.marker.names.3, 3)
 toprow <-
@@ -863,16 +1003,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 4
 
-```{r cluster4, fig.cap="Fig 5.17: Cluster 4 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.4, 4, color_list[4])
+```{r cluster4, fig.cap="Fig 5.17: Cluster 4 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.4.ensids$ensembl_gene_id, cluster.marker.names.4, "Cluster_4_allPCE", color_list[4])
 count <- mybarplot(Cluster_4, 4)
 violin <- grouped_violinPlots(cluster.marker.names.4, 4)
 toprow <-
@@ -881,16 +1023,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 5
 
-```{r cluster5, fig.cap="Fig 5.18: Cluster 5 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.5, 5, color_list[5])
+```{r cluster5, fig.cap="Fig 5.18: Cluster 5 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.5.ensids$ensembl_gene_id, cluster.marker.names.5, "Cluster_5_allPCE", color_list[5])
 count <- mybarplot(Cluster_5, 5)
 violin <- grouped_violinPlots(cluster.marker.names.5, 5)
 toprow <-
@@ -899,16 +1043,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 6
 
-```{r cluster6, fig.cap="Fig 5.19: Cluster 6 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.6, 6, color_list[6])
+```{r cluster6, fig.cap="Fig 5.19: Cluster 6 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.6.ensids$ensembl_gene_id, cluster.marker.names.6, "Cluster_6_allPCE", color_list[6])
 count <- mybarplot(Cluster_6, 6)
 violin <- grouped_violinPlots(cluster.marker.names.6, 6)
 toprow <-
@@ -925,8 +1071,8 @@ panel_plot
 ```
 #### Cluster 7
 
-```{r cluster7, fig.cap="Fig 5.20: Cluster 7 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.7, 7, color_list[7])
+```{r cluster7, fig.cap="Fig 5.20: Cluster 7 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.7.ensids$ensembl_gene_id, cluster.marker.names.7, "Cluster_7_allPCE", color_list[7])
 count <- mybarplot(Cluster_7, 7)
 violin <- grouped_violinPlots(cluster.marker.names.7, 7)
 toprow <-
@@ -935,16 +1081,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 8
 
-```{r cluster8, fig.cap="Fig 5.21: Cluster 8 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.8, 8, color_list[8])
+```{r cluster8, fig.cap="Fig 5.21: Cluster 8 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results",fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.8.ensids$ensembl_gene_id, cluster.marker.names.8, "Cluster_8_allPCE", color_list[8])
 count <- mybarplot(Cluster_8, 8)
 violin <- grouped_violinPlots(cluster.marker.names.8, 8)
 toprow <-
@@ -953,16 +1101,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 9
 
-```{r cluster9, fig.cap="Fig 5.22: Cluster 9 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.9, 9, color_list[9])
+```{r cluster9, fig.cap="Fig 5.22: Cluster 9 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results",fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.9.ensids$ensembl_gene_id, cluster.marker.names.9, "Cluster_9_allPCE", color_list[9])
 count <- mybarplot(Cluster_9, 9)
 violin <- grouped_violinPlots(cluster.marker.names.9, 9)
 toprow <-
@@ -971,16 +1121,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 10
 
-```{r cluster10, fig.cap="Fig 5.23: Cluster 10 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.10, 10, color_list[10])
+```{r cluster10, fig.cap="Fig 5.23: Cluster 10 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.10.ensids$ensembl_gene_id, cluster.marker.names.10, "Cluster_10_allPCE", color_list[10])
 count <- mybarplot(Cluster_10, 10)
 violin <- grouped_violinPlots(cluster.marker.names.10, 10)
 toprow <-
@@ -997,8 +1149,8 @@ panel_plot
 ```
 #### Cluster 11
 
-```{r cluster11, fig.cap="Fig 5.24: Cluster 11 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.11, 11, color_list[11])
+```{r cluster11, fig.cap="Fig 5.24: Cluster 11 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.11.ensids$ensembl_gene_id, cluster.marker.names.11, "Cluster_11_allPCE", color_list[11])
 count <- mybarplot(Cluster_11, 11)
 violin <- grouped_violinPlots(cluster.marker.names.11, 11)
 toprow <-
@@ -1007,16 +1159,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 12
 
-```{r cluster12, fig.cap="Fig 5.25: Cluster 12 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.12, 12, color_list[12])
+```{r cluster12, fig.cap="Fig 5.25: Cluster 12 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.12.ensids$ensembl_gene_id, cluster.marker.names.12, "Cluster_12_allPCE", color_list[12])
 count <- mybarplot(Cluster_12, 12)
 violin <- grouped_violinPlots(cluster.marker.names.12, 12)
 toprow <-
@@ -1025,16 +1179,18 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 #### Cluster 13
 
-```{r cluster13, fig.cap="Fig 5.26: Cluster 13 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=8, fig.height=10}
-pce <- runpce(cluster.marker.names.13, 13, color_list[13])
+```{r cluster13, fig.cap="Fig 5.26: Cluster 13 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.13.ensids$ensembl_gene_id, cluster.marker.names.13, "Cluster_13_allPCE", color_list[13])
 count <- mybarplot(Cluster_13, 13)
 violin <- grouped_violinPlots(cluster.marker.names.13, 13)
 toprow <-
@@ -1043,10 +1199,12 @@ panel_plot <-
   plot_grid(
     toprow,
     pce,
+    axis = "r",
     labels = c('', 'C'),
     ncol = 1,
-    rel_heights = c(1, 1.3)
-  )
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
 panel_plot
 ```
 

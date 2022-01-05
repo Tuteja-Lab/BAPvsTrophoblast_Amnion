@@ -1,0 +1,33 @@
+Cells	CellNames
+DC1	Dendritic cells clus 1
+DC2	Dendritic cells clus 2
+dM1	Decidual macrophages clus 1
+dM2	Decidual macrophages clus 2
+dM3	Decidual macrophages clus 3
+dNK.p	Decidual natural killer proliferative
+dNK1	Decidual natural killer clus 1
+dNK2	Decidual natural killer clus 2
+dNK3	Decidual natural killer clus 3
+dP1	Decidua Perivascular cells clus 1
+dP2	Decidua Perivascular cells clus 2
+dS1	Stromal cells clus 1
+dS2	Stromal cells clus 2
+dS3	Stromal cells clus 3
+Endo..f.	Endothelial cells (Fetal)
+Endo..m.	Endothelial cells (Maternal)
+Endo.L	Endothelial cells (L)
+Epi1	Epithelial glandular cells clus 1
+Epi2	Epithelial glandular cells clus 2
+EVT	Extravillous trophoblast
+fFB1	Fetal Fibroblasts clus 1
+fFB2	Fetal Fibroblasts clus 2
+Granulocytes	Granulocytes
+HB	Hofbauer cells
+ILC3	Innate lymphocyte cells 3
+MO	Macrophages
+NK.CD16.	Blood Natural Killer Cells CD16-
+NK.CD16..1	Blood Natural Killer Cells CD16+
+Plasma	Plasma
+SCT	Syncytio TB
+Tcells	T cells
+VCT	Villous TB

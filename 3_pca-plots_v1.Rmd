@@ -33,7 +33,7 @@ knitr::opts_knit$set(width = 75)
 
 This section uses the count data (all datasets) generated in Section 1 for cluster analyses. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation and clustering is performed using `DESeq2`, and results are visualized as PCA plots.
 
-# PCA plot for all libraries
+# PCA plots for datasets
 
 ## Prerequisites
 
@@ -49,17 +49,21 @@ library(pheatmap)
 library(ggrepel)
 library(RColorBrewer)
 library(plotly)
+library(PCAtools)
+library(scales)
+library(htmlwidgets)
 ```
 
 
+## PCA plots for all datasets
 
-## Import datasets
+### Import datasets
 
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
-counts = 'assets/new-counts.tsv'
-groupFile = 'assets/new-batch.v2.tsv'
+counts = 'assets/counts-pca-v2.txt'
+groupFile = 'assets/batch-pca-v2.txt'
 coldata <-
   read.csv(
     groupFile,
@@ -84,7 +88,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## Batch correction
+### Batch correction
 
 Using `Combat_seq` (SVA package) run batch correction - using bioproject IDs as variable (dataset origin).
 
@@ -95,7 +99,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## run DESeq2
+### run DESeq2
 
 The batch corrected read counts are then used for running DESeq2 analyses.
 
@@ -105,8 +109,10 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               design = ~ group)
 ```
 
-Transformation:
+### Transformation:
 ```{r vst, warnings=TRUE, message=FALSE}
+vst <- assay(vst(dds))
+p <- pca(vst, metadata = coldata, removeVar = 0.1)
 vsd <- vst(dds, blind = FALSE)
 pcaData <-
   plotPCA(vsd,
@@ -115,34 +121,197 @@ pcaData <-
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 ```
 
-## PCA plot (all)
+
+3D PCA plot function:
+```{r pca3d, warnings=TRUE, message=FALSE}
+# @ Thomas W. Battaglia
+
+#' Plot DESeq2's PCA plotting with Plotly 3D scatterplot
+#'
+#' The function will generate a plot_ly 3D scatter plot image for
+#' a 3D exploration of the PCA.
+#'
+#' @param object a DESeqTransform object, with data in assay(x), produced for example by either rlog or varianceStabilizingTransformation.
+#' @param intgroup interesting groups: a character vector of names in colData(x) to use for grouping
+#' @param ntop number of top genes to use for principal components, selected by highest row variance
+#' @param returnData should the function only return the data.frame of PC1, PC2 and PC3 with intgroup covariates for custom plotting (default is FALSE)
+#' @return An object created by plot_ly, which can be assigned and further customized.
+#' @export
+plotPCA3D <-
+  function (object,
+            intgroup = "condition",
+            ntop = 500,
+            returnData = FALSE) {
+    rv <- rowVars(assay(object))
+    select <-
+      order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
+    pca <- prcomp(t(assay(object)[select,]))
+    percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+    if (!all(intgroup %in% names(colData(object)))) {
+      stop("the argument 'intgroup' should specify columns of colData(dds)")
+    }
+    intgroup.df <-
+      as.data.frame(colData(object)[, intgroup, drop = FALSE])
+    group <- if (length(intgroup) > 1) {
+      factor(apply(intgroup.df, 1, paste, collapse = " : "))
+    }
+    else {
+      colData(object)[[intgroup]]
+    }
+    d <- data.frame(
+      PC1 = pca$x[, 1],
+      PC2 = pca$x[, 2],
+      PC3 = pca$x[, 3],
+      group = group,
+      intgroup.df,
+      name = colnames(object)
+    )
+    if (returnData) {
+      attr(d, "percentVar") <- percentVar[1:3]
+      return(d)
+    }
+    message("Generating plotly plot")
+    p <- plotly::plot_ly(
+      data = d,
+      x = ~ PC1,
+      y = ~ PC2,
+      z = ~ PC3,
+      color = group,
+      mode = "markers",
+      type = "scatter3d"
+    )
+    return(p)
+  }
+```
+
+
+### PCA plot (all)
 
 PCA plot for the dataset that includes all libraries.
 
-```{r pcaplot, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
-ggplotly(
-  ggplot(pcaData, aes(
-    PC1, PC2, color = group.1, shape = authors
-  )) +
-    scale_shape_manual(values = 1:8) +
-    theme_bw() +
-    theme(legend.title = element_blank(), legend.position = "none") +
-    geom_point(size = 1, stroke = 1) +
-    xlab(paste0("PC1: ", percentVar[1], "% variance")) +
-    ylab(paste0("PC2: ", percentVar[2], "% variance"))
+```{r pcaFull_comp, warnings=TRUE, message=FALSE}
+rv <- rowVars(assay(vsd))
+select <-
+  order(rv, decreasing = TRUE)[seq_len(min(500, length(rv)))]
+pca <- prcomp(t(assay(vsd)[select, ]))
+percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+intgroup = c("group", "authors")
+intgroup.df <- as.data.frame(colData(vsd)[, intgroup, drop = FALSE])
+group <- if (length(intgroup) > 1) {
+  factor(apply(intgroup.df, 1, paste, collapse = " : "))
+}
+d <- data.frame(
+  PC1 = pca$x[, 1],
+  PC2 = pca$x[, 2],
+  PC3 = pca$x[, 3],
+  PC4 = pca$x[, 4],
+  PC5 = pca$x[, 5],
+  group = group,
+  intgroup.df,
+  name = colnames(vsd)
 )
 ```
 
-# PCA plot for diifferentiated cell libraries
+### Components 1 and 2
 
-## Import datasets
+```{r pcaFull_C1-C2, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+g <- ggplot(d, aes(PC1, PC2, color = group.1, shape = authors)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
+  ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+### Components 1 and 3
+```{r pcaFull_C1-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+g <- ggplot(d, aes(PC1, PC3, color = group.1, shape = authors)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
+  ylab(paste("PC3", round(percentVar[3] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+### Components 2 and 3
+```{r pcaFull_C2-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+g <- ggplot(d, aes(PC2, PC3, color = group.1, shape = authors)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC2", round(percentVar[2] * 100, 2), "% variance")) +
+  ylab(paste("PC3", round(percentVar[3] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+
+### Scree plot
+```{r pcaFull_scree, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=5}
+scree_plot = data.frame(percentVar)
+scree_plot[, 2] <- c(1:97)
+colnames(scree_plot) <- c("variance", "component_number")
+g <-
+  ggplot(scree_plot, aes(component_number, variance * 100)) +
+  geom_bar(stat = 'identity', fill = "slateblue") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(
+      vjust = 1,
+      hjust = 1,
+      size = 12
+    ),
+    axis.text.y = element_text(size = 12),
+    plot.margin = margin(10, 10, 10, 100),
+    legend.position = "none",
+    plot.title = element_text(color = "black", size = 18, face = "bold.italic"),
+    axis.title.y = element_text(color = "black", size = 14, face = "bold"),
+    axis.line.x = element_line(
+      colour = 'black',
+      size = 0.5,
+      linetype = 'solid'
+    ),
+    axis.line.y = element_line(
+      colour = 'black',
+      size = 0.5,
+      linetype = 'solid'
+    ),
+    axis.ticks.x = element_line(
+      colour = 'black',
+      size = 1,
+      linetype = 'solid'
+    ),
+    axis.title.x = element_text(color = "black", size = 14, face = "bold")
+  ) +
+  xlab("Components") +
+  ylab("Percent Variance") + ggtitle("All samples")
+scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks())
+ggplotly(g)
+```
+
+### Interactive 3D PCA plot
+
+```{r pcaFull_3D, warnings=TRUE, message=FALSE}
+g <- plotPCA3D(vsd, intgroup = c("group", "authors"))
+saveWidget(g, file = "interactive/PCA_full.html")
+```
+[Interactive 3D PCA plot for all samples](interactive/PCA_full.html){target="_blank"}
+
+
+## PCA plot for diifferentiated cell libraries (no amnion datasets)
+
+### Import datasets
 
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r import2, warnings=TRUE, message=FALSE}
 setwd("~/github/BAPvsTrophoblast_Amnion")
-counts2 = 'assets/counts-dotted.tsv'
-groupFile = 'assets/batch-dotted.v2.tsv'
+counts2 = 'assets/counts-pca-v2.2.txt'
+groupFile = 'assets/batch-pca-v2.2.txt'
 coldata2 <-
   read.csv(
     groupFile,
@@ -150,7 +319,8 @@ coldata2 <-
     sep = "\t",
     stringsAsFactors = TRUE
   )
-cts2 <- as.matrix(read.csv(counts2, sep = "\t", row.names = "gene.ids"))
+cts2 <-
+  as.matrix(read.csv(counts2, sep = "\t", row.names = "gene.ids"))
 ```
 
 Inspect the `coldata`.
@@ -165,7 +335,7 @@ all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
 ```
 
-## Batch correction
+### Batch correction
 Using `ComBat_seq` (SVA package) run batch correction - using bioproject IDs as variable (dataset origin).
 
 ```{r batchcorrect2, warnings=TRUE, message=TRUE}
@@ -175,7 +345,7 @@ all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
 ```
 
-## Run DESeq2
+### Run DESeq2
 The batch corrected read counts are then used for running DESeq2 analyses.
 
 ```{r deseq2b, warnings=TRUE, message=FALSE}
@@ -184,7 +354,7 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               design = ~ group)
 ```
 
-Transformation:
+### Transformation:
 
 ```{r vst2, warnings=TRUE, message=FALSE}
 vsd <- vst(dds, blind = FALSE)
@@ -197,25 +367,123 @@ percentVar <- round(100 * attr(pcaData, "percentVar"))
 
 ## PCA plot (differenticated)
 
-```{r PCAplotDiffer, fig.cap="Fig 3.2: PCA plots (differentiated)", fig.width=8, fig.height=8}
-ggplotly(
-  ggplot(pcaData, aes(
-    PC1, PC2, color = group.1, shape = authors
-  )) +
-    scale_shape_manual(values = 1:8) +
-    theme_bw() +
-    theme(legend.title = element_blank(), legend.position = "none") +
-    geom_point(size = 1, stroke = 1) +
-    xlab(paste0("PC1: ", percentVar[1], "% variance")) +
-    ylab(paste0("PC2: ", percentVar[2], "% variance"))
+```{r pcaDif_comp, warnings=TRUE, message=FALSE}
+rv <- rowVars(assay(vsd))
+select <-
+  order(rv, decreasing = TRUE)[seq_len(min(500, length(rv)))]
+pca <- prcomp(t(assay(vsd)[select,]))
+percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
+intgroup = c("group", "authors")
+intgroup.df <- as.data.frame(colData(vsd)[, intgroup, drop = FALSE])
+group <- if (length(intgroup) > 1) {
+  factor(apply(intgroup.df, 1, paste, collapse = " : "))
+}
+d <- data.frame(
+  PC1 = pca$x[, 1],
+  PC2 = pca$x[, 2],
+  PC3 = pca$x[, 3],
+  PC4 = pca$x[, 4],
+  PC5 = pca$x[, 5],
+  group = group,
+  intgroup.df,
+  name = colnames(vsd)
 )
 ```
 
-# Session Information
+### Components 1 and 2
+
+```{r pcaDif_C1-C2, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+g <- ggplot(d, aes(PC1, PC2, color = group.1, shape = authors)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
+  ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+### Components 1 and 3
+```{r pcaDif_C1-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+g <- ggplot(d, aes(PC1, PC3, color = group.1, shape = authors)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
+  ylab(paste("PC3", round(percentVar[3] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+### Components 2 and 3
+```{r pcaDif_C2-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+g <- ggplot(d, aes(PC2, PC3, color = group.1, shape = authors)) +
+  scale_shape_manual(values = 1:8) +
+  theme_bw() +
+  theme(legend.title = element_blank()) +
+  geom_point(size = 2, stroke = 2) +
+  xlab(paste("PC2", round(percentVar[2] * 100, 2), "% variance")) +
+  ylab(paste("PC3", round(percentVar[3] * 100, 2), "% variance"))
+ggplotly(g)
+```
+
+
+### Scree plot
+```{r pcaDif_scree, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
+scree_plot = data.frame(percentVar)
+end = length(scree_plot$percentVar)
+scree_plot[, 2] <- c(1:end)
+colnames(scree_plot) <- c("variance", "component_number")
+
+
+g <- ggplot(scree_plot, aes(component_number, variance * 100)) +
+  geom_bar(stat = 'identity', fill = "slateblue") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(
+      vjust = 1,
+      hjust = 1,
+      size = 12
+    ),
+    axis.text.y = element_text(size = 12),
+    plot.margin = margin(10, 10, 10, 100),
+    legend.position = "none",
+    plot.title = element_text(color = "black", size = 18, face = "bold.italic"),
+    axis.title.y = element_text(color = "black", size = 14, face = "bold"),
+    axis.line.x = element_line(
+      colour = 'black',
+      size = 0.5,
+      linetype = 'solid'
+    ),
+    axis.line.y = element_line(
+      colour = 'black',
+      size = 0.5,
+      linetype = 'solid'
+    ),
+    axis.ticks.x = element_line(
+      colour = 'black',
+      size = 1,
+      linetype = 'solid'
+    ),
+    axis.title.x = element_text(color = "black", size = 14, face = "bold")
+  ) +
+  xlab("Components") +
+  ylab("Percent Variance") + ggtitle("Differntiated samples")
+scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks())
+ggplotly(g)
+```
+
+### Interactive 3D PCA plot
+
+```{r pcaDif_3D, warnings=TRUE, message=FALSE}
+g <- plotPCA3D(vsd, intgroup = c("group", "authors"))
+saveWidget(g, file = "interactive/PCA_dif.html")
+```
+[Interactive 3D PCA plot for diifferentiated samples](interactive/PCA_dif.html){target="_blank"}
+
+
+## Session Information
 
 ```{r sessioninfo}
 sessionInfo()
 ```
-
-
-

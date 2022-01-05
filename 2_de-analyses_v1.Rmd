@@ -57,6 +57,9 @@ library(plotly)
 library(DT)
 library(cowplot)
 library(biomaRt)
+library(tidytext)
+library(ggpubr)
+library(scales)
 ```
 
 
@@ -65,8 +68,8 @@ library(biomaRt)
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
-counts = '~/github/BAPvsTrophoblast_Amnion/assets/counts-subset-v4.txt'
-groupFile = '~/github/BAPvsTrophoblast_Amnion/assets/batch-subset-v4.txt'
+counts = 'assets/counts-subset-v5.txt'
+groupFile = 'assets/batch-subset-v5.txt'
 coldata <-
   read.csv(
     groupFile,
@@ -120,100 +123,174 @@ dds
 Various contrasts are set up as follows (a total of 9 combinations)
 
 ```{r cotnrasts, warnings=TRUE, message=FALSE}
-res.nCTvsBAP <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nCT_P10.Naive_H9_hESCs",
-                          "pBAP_D3.Primed_H9_hESCs"
-                        ))
-res.nTEvsSTB <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nTE_D3.Naive_H9_hESCs",
-                          "hESC_H1_STB_gt70um_D8_BAP"
-                        ))
-res.nCTvsSTB <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nCT_P10.Naive_H9_hESCs",
-                          "hESC_H1_STB_gt70um_D8_BAP"))
-res.nTEvsBAP <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nTE_D3.Naive_H9_hESCs",
-                          "pBAP_D3.Primed_H9_hESCs"
-                        ))
-res.nTEvsL40 <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nTE_D3.Naive_H9_hESCs",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                        ))
-res.nCTvsL40 <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "nCT_P10.Naive_H9_hESCs",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                          ))
-res.BAPvsL40 <- results(dds,
-                        contrast = c(
-                          "condition",
-                          "pBAP_D3.Primed_H9_hESCs",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                          ))
-res.BAPvsSTB <- results(dds, 
-                        contrast=c(
-                          "condition",
-                          "pBAP_D3.Primed_H9_hESCs",
-                          "hESC_H1_STB_gt70um_D8_BAP"
-                          ))
-res.STBvsL40 <- results(dds,
-                        contrast=c(
-                          "condition",
-                          "hESC_H1_STB_gt70um_D8_BAP",
-                          "hESC_H1_STB_lt40um_D8_BAP"
-                          ))
+res.nCTvsBAP <-
+  results(dds,
+          contrast = c(
+            "condition",
+            "nCT_P10.Naive_H9_hESCs",
+            "pBAP_D3.Primed_H9_hESCs"
+          ))
+res.nTEvsSTB <-
+  results(dds,
+          contrast = c(
+            "condition",
+            "nTE_D3.Naive_H9_hESCs",
+            "hESC_H1_STB_gt70um_D8_BAP"
+          ))
+res.nCTvsSTB <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "nCT_P10.Naive_H9_hESCs",
+      "hESC_H1_STB_gt70um_D8_BAP"
+    )
+  )
+res.nTEvsBAP <-
+  results(dds,
+          contrast = c(
+            "condition",
+            "nTE_D3.Naive_H9_hESCs",
+            "pBAP_D3.Primed_H9_hESCs"
+          ))
+res.nTEvsL40 <-
+  results(dds,
+          contrast = c(
+            "condition",
+            "nTE_D3.Naive_H9_hESCs",
+            "hESC_H1_STB_lt40um_D8_BAP"
+          ))
+res.nCTvsL40 <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "nCT_P10.Naive_H9_hESCs",
+      "hESC_H1_STB_lt40um_D8_BAP"
+    )
+  )
+res.BAPvsL40 <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "pBAP_D3.Primed_H9_hESCs",
+      "hESC_H1_STB_lt40um_D8_BAP"
+    )
+  )
+res.BAPvsSTB <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "pBAP_D3.Primed_H9_hESCs",
+      "hESC_H1_STB_gt70um_D8_BAP"
+    )
+  )
+res.STBvsL40 <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "hESC_H1_STB_gt70um_D8_BAP",
+      "hESC_H1_STB_lt40um_D8_BAP"
+    )
+  )
+res.BAPvsNH9 <-
+  results(dds,
+          contrast = c(
+            "condition", 
+            "pBAP_D3.Primed_H9_hESCs",
+            "Naive_H9_hESCs"))
+res.UNDvsSTB <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "hESC_H1_D8_MEF.CM.and.FGF2",
+      "hESC_H1_STB_gt70um_D8_BAP"
+    )
+  )
+res.BAPvsK72 <-
+  results(dds,
+          contrast = c(
+            "condition", 
+            "pBAP_D3.Primed_H9_hESCs",
+            "hESC_H9_BMP4_72h"))
+res.K72vsSTB <-
+  results(dds,
+          contrast = c(
+            "condition", 
+            "hESC_H9_BMP4_72h",
+            "hESC_H1_STB_gt70um_D8_BAP"))
+res.K00vsK72 <-
+  results(dds,
+          contrast = c(
+            "condition", 
+            "hESC_H9_untr_0h", "hESC_H9_BMP4_72h"))
+res.PH9vsBAP <-
+  results(dds,
+          contrast = c(
+            "condition", 
+            "Primed_H9_hESCs", 
+            "pBAP_D3.Primed_H9_hESCs"))
+res.UNDvsL40 <-
+  results(
+    dds,
+    contrast = c(
+      "condition",
+      "hESC_H1_D8_MEF.CM.and.FGF2",
+      "hESC_H1_STB_lt40um_D8_BAP"
+    )
+  )
+res.K72vsL40 <-
+  results(dds,
+          contrast = c(
+            "condition", 
+            "hESC_H9_BMP4_72h",
+            "hESC_H1_STB_lt40um_D8_BAP"))
 ```
 
 The following function is to save DESeq2 results as well as generate variables to hold the gene lists for running PCE later on.
 
 ```{r deseq2funx, warnings=TRUE, message=FALSE}
-processDE <- function(restable, fileName) {
-  restable <- restable[order(restable$padj),]
-  outTable <- merge(as.data.frame(restable),
-                    as.data.frame(counts(dds, normalized = TRUE)),
-                    by = "row.names",
-                    sort = FALSE)
-  names(outTable)[1] <- "Gene"
-  newName = paste0("assets/DESeq2results-", fileName, "_fc.tsv")
-  write_delim(outTable, file = newName, delim = "\t")
-  upName <- paste0(fileName, ".up")
-  upName <- outTable %>% filter(log2FoldChange >= 1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
+processDE <- function(res.se, string) {
+  res.se <- res.se[order(res.se$padj),]
+  res.data <-
+    merge(as.data.frame(res.se),
+          as.data.frame(counts(dds, normalized = TRUE)),
+          by = "row.names",
+          sort = FALSE)
+  names(res.data)[1] <- "Gene"
+  write_delim(res.data,
+              file = paste0("DESeq2results-", string, "_fc.tsv"),
+              delim = "\t")
+  res.up <-
+    res.data %>% 
+    filter(log2FoldChange >= 1) %>% 
+    filter(padj <= 0.05) %>% 
+    arrange(desc(log2FoldChange)) %>% 
     dplyr::select(Gene)
-  downName <- paste0(fileName, ".down")
-  downName <- outTable %>% filter(log2FoldChange <= -1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
+  res.dw <-
+    res.data %>% 
+    filter(log2FoldChange <= -1) %>% 
+    filter(padj <= 0.05) %>% 
+    arrange(desc(log2FoldChange)) %>% 
     dplyr::select(Gene)
+  res.up.new <-
+    annot[annot$ensembl_gene_id_version %in% res.up$Gene, ]
+  res.dw.new <-
+    annot[annot$ensembl_gene_id_version %in% res.dw$Gene, ]
+  pce.up1 <- paste0(string, ".up.pce", 1)
+  pce.dw1 <- paste0(string, ".dw.pce", 1)
+  pce.up2 <- paste0(string, ".up.pce", 2)
+  pce.dw2 <- paste0(string, ".dw.pce", 2)
+  assign(pce.up1, res.up.new$ensembl_gene_id, envir = .GlobalEnv)
+  assign(pce.dw1, res.dw.new$ensembl_gene_id, envir = .GlobalEnv)
+  assign(pce.up2, res.up.new$external_gene_name, envir = .GlobalEnv)
+  assign(pce.dw2, res.dw.new$external_gene_name, envir = .GlobalEnv)
 }
 ```
-
-The results are saved as tsv files.
-
-```{r deseq2save, warnings=TRUE, message=FALSE}
-processDE(res.nCTvsBAP, "nCTvsBAP")
-processDE(res.nCTvsSTB, "nCTvsSTB")
-processDE(res.nTEvsSTB, "nTEvsSTB")
-processDE(res.nTEvsBAP, "nTEvsBAP")
-processDE(res.nTEvsL40, "nTEvsL40")
-processDE(res.nCTvsL40, "nCTvsL40")
-processDE(res.BAPvsL40, "BAPvsL40")
-processDE(res.STBvsL40, "STBvsL40")
-processDE(res.BAPvsSTB, "BAPvsSTB")
-```
-
 
 ## Creating gene lists
 
@@ -245,86 +322,640 @@ dup <- annot$ensembl_gene_id[isDup]
 annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
 ```
 
-We will create separate lists for up-regulated genes and for down-regulated genes.
-Function for up-regulated genes.
-```{r pcelist1, warnings=TRUE, message=FALSE}
-pceUP <- function(restable) {
-  restable <- restable[order(restable$padj),]
-  outTable <- merge(as.data.frame(restable),
-                    as.data.frame(counts(dds, normalized = TRUE)),
-                    by = "row.names",
-                    sort = FALSE)
-  names(outTable)[1] <- "Gene"
-  upName <- outTable %>% filter(log2FoldChange >= 1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
-    dplyr::select(Gene)
-  upNew <- annot[annot$ensembl_gene_id_version %in% upName$Gene, ]
-  upList <- upNew$ensembl_gene_id
-  return(upList)
+The results are saved as tsv files.
+
+```{r deseq2save, warnings=TRUE, message=FALSE}
+processDE(res.nCTvsBAP, "nCTvsBAP")
+processDE(res.nTEvsSTB, "nTEvsSTB")
+processDE(res.nCTvsSTB, "nCTvsSTB")
+processDE(res.nTEvsBAP, "nTEvsBAP")
+processDE(res.nTEvsL40, "nTEvsL40")
+processDE(res.nCTvsL40, "nCTvsL40")
+processDE(res.BAPvsL40, "BAPvsL40")
+processDE(res.BAPvsSTB, "BAPvsSTB")
+processDE(res.STBvsL40, "STBvsL40")
+processDE(res.BAPvsNH9, "BAPvsNH9")
+processDE(res.UNDvsSTB, "UNDvsSTB")
+processDE(res.BAPvsK72, "BAPvsK72")
+processDE(res.K72vsSTB, "K72vsSTB")
+processDE(res.K00vsK72, "K00vsK72")
+processDE(res.PH9vsBAP, "PH9vsBAP")
+processDE(res.UNDvsL40, "UNDvsL40")
+processDE(res.K72vsL40, "K72vsL40")
+```
+
+
+```{r martdata}
+mart <-
+  read.csv(
+    "assets/mart-genes.tsv",
+    sep = "\t",
+    stringsAsFactors = TRUE,
+    header = TRUE
+  ) #this object was obtained from Ensembl as we illustrated in "Creating gene lists"
+```
+
+```{r volcano}
+volcanoPlots <-
+  function(res.se,
+           string,
+           first,
+           second,
+           color1,
+           color2,
+           color3,
+           ChartTitle) {
+    res.se <- res.se[order(res.se$padj), ]
+    res.se <-
+      rownames_to_column(as.data.frame(res.se[order(res.se$padj), ]))
+    names(res.se)[1] <- "Gene"
+    res.data <-
+      merge(res.se,
+            mart,
+            by.x = "Gene",
+            by.y = "ensembl_gene_id_version")
+    res.data <- res.data %>% mutate_all(na_if, "")
+    res.data <- res.data %>% mutate_all(na_if, " ")
+    res.data <-
+      res.data %>% mutate(gene_symbol = coalesce(gene_symbol, Gene))
+    res.data$diffexpressed <- "other.genes"
+    res.data$diffexpressed[res.data$log2FoldChange >= 1 &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", first)
+    res.data$diffexpressed[res.data$log2FoldChange <= -1 &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", second)
+    res.data$delabel <- ""
+    res.data$delabel[res.data$log2FoldChange >= 1
+                     & res.data$padj <= 0.05
+                     &
+                       !is.na(res.data$padj)] <-
+      res.data$gene_symbol[res.data$log2FoldChange >= 1
+                           &
+                             res.data$padj <= 0.05
+                           &
+                             !is.na(res.data$padj)]
+    res.data$delabel[res.data$log2FoldChange <= -1
+                     & res.data$padj <= 0.05
+                     &
+                       !is.na(res.data$padj)] <-
+      res.data$gene_symbol[res.data$log2FoldChange <= -1
+                           &
+                             res.data$padj <= 0.05
+                           &
+                             !is.na(res.data$padj)]
+    outpath <- "interactive/"
+    gg <-
+      ggplot(res.data,
+             aes(
+               x = log2FoldChange,
+               y = -log10(padj),
+               col = diffexpressed,
+               label = delabel
+             )) +
+      geom_point(alpha = 0.5) +
+      xlim(-20, 20) +
+      theme_classic() +
+      scale_color_manual(name = "Expression", values = c(color1, color2, color3)) +
+      ggtitle(ChartTitle) +
+      xlab(paste("log2 fold change")) +
+      ylab("-log10 pvalue (adjusted)") +
+      theme(legend.text.align = 0)
+    saveWidget(ggplotly(gg), file = paste0(outpath, "/Figure_volcano_", string, ".html"))
 }
 ```
-Function for down-regulated genes.
 
-```{r pcelist2, warnings=TRUE, message=FALSE}
-pceDOWN <- function(restable) {
-  restable <- restable[order(restable$padj),]
-  outTable <- merge(as.data.frame(restable),
-                    as.data.frame(counts(dds, normalized = TRUE)),
-                    by = "row.names",
-                    sort = FALSE)
-  names(outTable)[1] <- "Gene"
-  downName <- outTable %>% filter(log2FoldChange <= -1) %>%
-    filter(padj <= 0.05) %>%
-    arrange(desc(log2FoldChange)) %>%
-    dplyr::select(Gene)
-  downNew <-
-    annot[annot$ensembl_gene_id_version %in% downName$Gene, ]
-  downList <- downNew$ensembl_gene_id
-  return(downList)
+## Volcano Plots (interactive)
+
+Running Volcano plots for each comparison are shown below.
+
+```{r vol_interactive_all, warnings=TRUE, message=FALSE}
+volcanoPlots(
+  res.nCTvsBAP,
+  "nCTvsBAP",
+  "H9_nCT_P10_Io",
+  "H9_pBAP_D3_Io",
+  "#FB6542",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_nCT_P10_Io vs. H9_pBAP_D3_Io"
+)
+
+volcanoPlots(
+  res.nCTvsSTB,
+  "nCTvsSTB",
+  "H9_nCT_P10_Io",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#FB6542",
+  "#4d4d4d",
+  ChartTitle = "H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe"
+)
+volcanoPlots(
+  res.nTEvsSTB,
+  "nTEvsSTB",
+  "H9_nTE_D3_Io",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#C99E10",
+  "#4d4d4d",
+  ChartTitle = "H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe"
+)
+volcanoPlots(
+  res.nTEvsBAP,
+  "nTEvsBAP",
+  "H9_nTE_D3_Io",
+  "H9_pBAP_D3_Io",
+  "#C99E10",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_nTE_D3_Io vs. H9_pBAP_D3_Io"
+)
+volcanoPlots(
+  res.nTEvsL40,
+  "nTEvsL40",
+  "H9_nTE_D3_Io",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#C99E10",
+  "#4d4d4d",
+  ChartTitle = "H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe"
+)
+volcanoPlots(
+  res.nCTvsL40,
+  "nCTvsL40",
+  "H9_nCT_P10_Io",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#FB6542",
+  "#4d4d4d",
+  ChartTitle = "H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe"
+)
+volcanoPlots(
+  res.BAPvsL40,
+  "BAPvsL40",
+  "H9_pBAP_D3_Io",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe"
+)
+volcanoPlots(
+  res.STBvsL40,
+  "STBvsL40",
+  "H1_BAP_D8_>70_Yabe",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#598234",
+  "#4d4d4d",
+  ChartTitle = "H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe"
+)
+volcanoPlots(
+  res.BAPvsSTB,
+  "BAPvsSTB",
+  "H9_pBAP_D3_Io",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe"
+)
+volcanoPlots(
+  res.BAPvsNH9,
+  "BAPvsNH9",
+  "H9_pBAP_D3_Io",
+  "nH9_Io",
+  "#0571B0",
+  "#8a2be2",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. nH9_Io"
+)
+volcanoPlots(
+  res.UNDvsSTB,
+  "UNDvsSTB",
+  "H1_Yabe",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#006400",
+  "#4d4d4d",
+  ChartTitle = "H1_Yabe vs. H1_BAP_D8_>70_Yabe"
+)
+volcanoPlots(
+  res.BAPvsK72,
+  "BAPvsK72",
+  "H9_pBAP_D3_Io",
+  "H9_BMP4.72h_Krendl",
+  "#EE82EE",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. H9_BMP4.72h_Krendl"
+)
+volcanoPlots(
+  res.K72vsSTB,
+  "K72vsSTB",
+  "H9_BMP4.72h_Krendl",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#EE82EE",
+  "#4d4d4d",
+  ChartTitle = "H9_BMP4.72h_Krendl vs. H1_BAP_D8_>70_Yabe"
+)
+volcanoPlots(
+  res.K00vsK72,
+  "K00vsK72",
+  "H9_BMP4.0h_Krendl",
+  "H9_BMP4.72h_Krendl",
+  "#FF1493",
+  "#EE82EE",
+  "#4d4d4d",
+  ChartTitle = "H9_BMP4.0h_Krendl vs. H9_BMP4.72h_Krendl"
+)
+volcanoPlots(
+  res.PH9vsBAP,
+  "PH9vsBAP",
+  "pH9_Io",
+  "H9_pBAP_D3_Io",
+  "#0571B0",
+  "#483D8B",
+  "#4d4d4d",
+  ChartTitle = "pH9_Io vs. H9_pBAP_D3_Io"
+)
+volcanoPlots(
+  res.UNDvsL40,
+  "UNDvsL40",
+  "H1_Yabe",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#006400",
+  "#4d4d4d",
+  ChartTitle = "H1_Yabe vs. H1_BAP_D8_<40_Yabe"
+)
+volcanoPlots(
+  res.K72vsL40,
+  "K72vsL40",
+  "H9_BMP4.72h_Krendl",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#EE82EE",
+  "#4d4d4d",
+  ChartTitle = "H9_BMP4.72h_Krendl vs. H1_BAP_D8_<40_Yabe"
+)
+```
+### Interactive Volcano Plots:
+
+
+1. [H9_nCT_P10_Io vs. H9_pBAP_D3_Io](interactive/Figure_volcano_nCTvsBAP.html){target="_blank"}
+2. [H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe](interactive/Figure_volcano_ nCTvsSTB.html){target="_blank"}
+3. [H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe](interactive/Figure_volcano_nTEvsSTB.html){target="_blank"}
+4. [H9_nTE_D3_Io vs. H9_pBAP_D3_Io](interactive/Figure_volcano_ nTEvsBAP.html){target="_blank"}
+5. [H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe](interactive/Figure_volcano_nTEvsL40.html){target="_blank"}
+6. [H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe](interactive/Figure_volcano_ nCTvsL40.html){target="_blank"}
+7. [H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe](interactive/Figure_volcano_ BAPvsL40.html){target="_blank"}
+8. [H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe](interactive/Figure_volcano_STBvsL40.html){target="_blank"}
+9. [H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe](interactive/Figure_volcano_ BAPvsSTB.html){target="_blank"}
+10. [H9_pBAP_D3_Io vs. nH9_Io](interactive/Figure_volcano_ BAPvsNH9.html){target="_blank"}
+11. [H1_Yabe vs. H1_BAP_D8_>70_Yabe](interactive/Figure_volcano_ UNDvsSTB.html){target="_blank"}
+12. [H9_pBAP_D3_Io vs. H9_BMP4.72h_Krendl](interactive/Figure_volcano_ BAPvsK72.html){target="_blank"}
+13. [H9_BMP4.72h_Krendl vs. H1_BAP_D8_>70_Yabe](interactive/Figure_volcano_K72vsSTB.html){target="_blank"}
+14. [H9_BMP4.0h_Krendl vs. H9_BMP4.72h_Krendl](interactive/Figure_volcano_ K00vsK72.html){target="_blank"}
+15. [pH9_Io vs. H9_pBAP_D3_Io](interactive/Figure_volcano_ PH9vsBAP.html){target="_blank"}
+16. [H1_Yabe vs. H1_BAP_D8_<40_Yabe](interactive/Figure_volcano_ UNDvsL40.html){target="_blank"}
+17. [H9_BMP4.72h_Krendl vs. H1_BAP_D8_<40_Yabe](interactive/Figure_volcano_K72vsL40.html){target="_blank"}
+
+### Static Volcano Plots:
+
+```{r volcano2}
+volcanoPlots2 <-
+  function(res.se,
+           string,
+           first,
+           second,
+           color1,
+           color2,
+           color3,
+           ChartTitle) {
+    res.se <- res.se[order(res.se$padj), ]
+    res.se <-
+      rownames_to_column(as.data.frame(res.se[order(res.se$padj), ]))
+    names(res.se)[1] <- "Gene"
+    res.data <-
+      merge(res.se,
+            mart,
+            by.x = "Gene",
+            by.y = "ensembl_gene_id_version")
+    res.data <- res.data %>% mutate_all(na_if, "")
+    res.data <- res.data %>% mutate_all(na_if, " ")
+    res.data <-
+      res.data %>% mutate(gene_symbol = coalesce(gene_symbol, Gene))
+    res.data$diffexpressed <- "other.genes"
+    res.data$diffexpressed[res.data$log2FoldChange >= 1 &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", first)
+    res.data$diffexpressed[res.data$log2FoldChange <= -1 &
+                             res.data$padj <= 0.05] <-
+      paste("Higher expression in", second)
+    res.data$delabel <- ""
+    res.data$delabel[res.data$log2FoldChange >= 1
+                     & res.data$padj <= 0.05
+                     &
+                       !is.na(res.data$padj)] <-
+      res.data$gene_symbol[res.data$log2FoldChange >= 1
+                           &
+                             res.data$padj <= 0.05
+                           &
+                             !is.na(res.data$padj)]
+    res.data$delabel[res.data$log2FoldChange <= -1
+                     & res.data$padj <= 0.05
+                     &
+                       !is.na(res.data$padj)] <-
+      res.data$gene_symbol[res.data$log2FoldChange <= -1
+                           &
+                             res.data$padj <= 0.05
+                           &
+                             !is.na(res.data$padj)]
+    ggplot(res.data,
+             aes(
+               x = log2FoldChange,
+               y = -log10(padj),
+               col = diffexpressed,
+               label = delabel
+             )) +
+      geom_point(alpha = 0.5) +
+      xlim(-20, 20) +
+      theme_classic() +
+      scale_color_manual(name = "Expression", values = c(color1, color2, color3)) +
+      geom_text_repel(
+        data = subset(res.data, padj <= 0.05),
+        max.overlaps  = 15,
+        show.legend = F,
+        min.segment.length = Inf,
+        seed = 42,
+        box.padding = 0.5
+      ) +
+      ggtitle(ChartTitle) +
+      xlab(paste("log2 fold change")) +
+      ylab("-log10 pvalue (adjusted)") +
+      theme(legend.text.align = 0)
 }
 ```
 
-Run the functions on the DESeq2 result objects.
 
-```{r pce, warnings=TRUE, message=FALSE}
-nCTvsBAP.up <- pceUP(res.nCTvsBAP)
-nCTvsSTB.up <- pceUP(res.nCTvsSTB)
-nTEvsSTB.up <- pceUP(res.nTEvsSTB)
-nTEvsBAP.up <- pceUP(res.nTEvsBAP)
-nTEvsL40.up <- pceUP(res.nTEvsL40)
-nCTvsL40.up <- pceUP(res.nCTvsL40)
-BAPvsL40.up <- pceUP(res.BAPvsL40)
-STBvsL40.up <- pceUP(res.STBvsL40)
-BAPvsSTB.up <- pceUP(res.BAPvsSTB)
-nCTvsBAP.down <- pceDOWN(res.nCTvsBAP)
-nCTvsSTB.down <- pceDOWN(res.nCTvsSTB)
-nTEvsSTB.down <- pceDOWN(res.nTEvsSTB)
-nTEvsBAP.down <- pceDOWN(res.nTEvsBAP)
-nTEvsL40.down <- pceDOWN(res.nTEvsL40)
-nCTvsL40.down <- pceDOWN(res.nCTvsL40)
-BAPvsL40.down <- pceDOWN(res.BAPvsL40)
-STBvsL40.down <- pceDOWN(res.STBvsL40)
-BAPvsSTB.down <- pceDOWN(res.BAPvsSTB)
+
+```{r vol1, fig.cap="Fig 2.1: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.nCTvsBAP,
+  "nCTvsBAP",
+  "H9_nCT_P10_Io",
+  "H9_pBAP_D3_Io",
+  "#FB6542",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_nCT_P10_Io vs. H9_pBAP_D3_Io"
+)
+```
+```{r vol2, fig.cap="Fig 2.2: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.nCTvsSTB,
+  "nCTvsSTB",
+  "H9_nCT_P10_Io",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#FB6542",
+  "#4d4d4d",
+  ChartTitle = "H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe"
+)
+```
+```{r vol3, fig.cap="Fig 2.3: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.nTEvsSTB,
+  "nTEvsSTB",
+  "H9_nTE_D3_Io",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#C99E10",
+  "#4d4d4d",
+  ChartTitle = "H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe"
+)
+```
+```{r vol4, fig.cap="Fig 2.4: H9_nTE_D3_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.nTEvsBAP,
+  "nTEvsBAP",
+  "H9_nTE_D3_Io",
+  "H9_pBAP_D3_Io",
+  "#C99E10",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_nTE_D3_Io vs. H9_pBAP_D3_Io"
+)
+```
+```{r vol5, fig.cap="Fig 2.5: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.nTEvsL40,
+  "nTEvsL40",
+  "H9_nTE_D3_Io",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#C99E10",
+  "#4d4d4d",
+  ChartTitle = "H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe"
+)
+```
+```{r vol6, fig.cap="Fig 2.6: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.nCTvsL40,
+  "nCTvsL40",
+  "H9_nCT_P10_Io",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#FB6542",
+  "#4d4d4d",
+  ChartTitle = "H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe"
+)
+```
+```{r vol7, fig.cap="Fig 2.7: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.BAPvsL40,
+  "BAPvsL40",
+  "H9_pBAP_D3_Io",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe"
+)
+```
+```{r vol8, fig.cap="Fig 2.8: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.STBvsL40,
+  "STBvsL40",
+  "H1_BAP_D8_>70_Yabe",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#598234",
+  "#4d4d4d",
+  ChartTitle = "H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe"
+)
+```
+```{r vol9, fig.cap="Fig 2.9: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.BAPvsSTB,
+  "BAPvsSTB",
+  "H9_pBAP_D3_Io",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe"
+)
+```
+```{r vol10, fig.cap="Fig 2.10: H9_pBAP_D3_Io vs. nH9_Io", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.BAPvsNH9,
+  "BAPvsNH9",
+  "H9_pBAP_D3_Io",
+  "nH9_Io",
+  "#0571B0",
+  "#8a2be2",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. nH9_Io"
+)
+```
+```{r vol11, fig.cap="Fig 2.11: H1_Yabe vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.UNDvsSTB,
+  "UNDvsSTB",
+  "H1_Yabe",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#006400",
+  "#4d4d4d",
+  ChartTitle = "H1_Yabe vs. H1_BAP_D8_>70_Yabe"
+)
+```
+```{r vol12, fig.cap="Fig 2.12: H9_pBAP_D3_Io vs. H9_BMP4.72h_Krendl", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.BAPvsK72,
+  "BAPvsK72",
+  "H9_pBAP_D3_Io",
+  "H9_BMP4.72h_Krendl",
+  "#EE82EE",
+  "#0571B0",
+  "#4d4d4d",
+  ChartTitle = "H9_pBAP_D3_Io vs. H9_BMP4.72h_Krendl"
+)
+```
+```{r vol13, fig.cap="Fig 2.13: H9_BMP4.72h_Krendl vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.K72vsSTB,
+  "K72vsSTB",
+  "H9_BMP4.72h_Krendl",
+  "H1_BAP_D8_>70_Yabe",
+  "#598234",
+  "#EE82EE",
+  "#4d4d4d",
+  ChartTitle = "H9_BMP4.72h_Krendl vs. H1_BAP_D8_>70_Yabe"
+)
+```
+```{r vol14, fig.cap="Fig 2.14: H9_BMP4.0h_Krendl vs. H9_BMP4.72h_Krendl", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.K00vsK72,
+  "K00vsK72",
+  "H9_BMP4.0h_Krendl",
+  "H9_BMP4.72h_Krendl",
+  "#FF1493",
+  "#EE82EE",
+  "#4d4d4d",
+  ChartTitle = "H9_BMP4.0h_Krendl vs. H9_BMP4.72h_Krendl"
+)
+```
+```{r vol15, fig.cap="Fig 2.15: pH9_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.PH9vsBAP,
+  "PH9vsBAP",
+  "pH9_Io",
+  "H9_pBAP_D3_Io",
+  "#0571B0",
+  "#483D8B",
+  "#4d4d4d",
+  ChartTitle = "pH9_Io vs. H9_pBAP_D3_Io"
+)
+```
+```{r vol16, fig.cap="Fig 2.16: H1_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.UNDvsL40,
+  "UNDvsL40",
+  "H1_Yabe",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#006400",
+  "#4d4d4d",
+  ChartTitle = "H1_Yabe vs. H1_BAP_D8_<40_Yabe"
+)
+```
+```{r vol17, fig.cap="Fig 2.17: H9_BMP4.72h_Krendl vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
+volcanoPlots2(
+  res.K72vsL40,
+  "K72vsL40",
+  "H9_BMP4.72h_Krendl",
+  "H1_BAP_D8_<40_Yabe",
+  "#AEBD38",
+  "#EE82EE",
+  "#4d4d4d",
+  ChartTitle = "H9_BMP4.72h_Krendl vs. H1_BAP_D8_<40_Yabe"
+)
 ```
 
-## PlacentaCellEnrich (PCE)
+## PlacentaCellEnrich (PCE) analyses
 
 The above gene lists are used for running PCE. The function used for running PCE is below.
 
-```{r pcefunction}
-# load the PCE data
+```{r pceimport}
+# Vento-Tormo et al., dataset
 l <-
-  load(file = "~/TutejaLab/PlacentaEnrich/combine-test-expression1.Rdata")
+  load(file = "assets/combine-test-expression1.Rdata")
 humanGeneMapping <- dataset$GRCH38$humanGeneMapping
 d <- dataset$PlacentaDeciduaBloodData
 data <- d$expressionData
 cellDetails <- d$cellDetails
-# create a run PCE function
-runpce <- function(inputgenelist, title, shade) {
-  inputGenes <- toupper(inputgenelist)
+
+# Xiang et al., dataset
+te.dataset.xiang <- readRDS("assets/te.dataset.xiang.rds")
+
+# Castel et al., dataset
+te.dataset.castel <- readRDS("assets/te.dataset.castel.rds")
+
+# full names for cell types
+    xi.md <-
+  read.csv(
+    "assets/md-xi.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+vt.md <-
+  read.csv(
+    "assets/md-vt.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+zp.md <-
+  read.csv(
+    "assets/md-zp.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+
+```
+
+
+```{r pcefunction}
+run.all.PCE <- function(geneList1, geneList2, filename, ChartTitle, barcolor) {
   expressionData <-
-    data[intersect(row.names(data), humanGeneMapping$Gene), ]
+    data[intersect(row.names(data), humanGeneMapping$Gene),]
   se <-
     SummarizedExperiment(
       assays = SimpleList(as.matrix(expressionData)),
@@ -333,371 +964,523 @@ runpce <- function(inputgenelist, title, shade) {
     )
   cellSpecificGenesExp <-
     teGeneRetrieval(se, expressedGeneThreshold = 1)
-  print(length(inputGenes))
-  gs <- GeneSet(geneIds = toupper(inputGenes))
-  output2 <- teEnrichmentCustom(gs, cellSpecificGenesExp)
-  enrichmentOutput <- setNames(data.frame(assay(output2[[1]]),
-                                          row.names = rowData(output2[[1]])[, 1]),
-                               colData(output2[[1]])[, 1])
+  print(length(geneList1))
+  gs.vt <- GeneSet(geneIds = toupper(geneList1))
+  output.vt <- teEnrichmentCustom(gs.vt, cellSpecificGenesExp)
+  en.output.vt <-
+    setNames(data.frame(assay(output.vt[[1]]), row.names = rowData(output.vt[[1]])[, 1]),
+             colData(output.vt[[1]])[, 1])
   row.names(cellDetails) <- cellDetails$RName
-  enrichmentOutput$Tissue <-
-    cellDetails[row.names(enrichmentOutput), "CellName"]
-  ggplot(data = enrichmentOutput,
-         mapping = aes(x = reorder (Tissue,-Log10PValue), Log10PValue)) +
-    geom_bar(stat = "identity",
-             color = shade,
-             fill = shade) + theme_classic(base_size = 10) +
+  en.output.vt$Tissue <-
+    cellDetails[row.names(en.output.vt), "CellName"]
+  gs <- GeneSet(unique(geneList2))
+  output.xi <- teEnrichmentCustom(gs, te.dataset.xiang)
+  output.zp <- teEnrichmentCustom(gs, te.dataset.castel)
+  en.output.xi <-
+    setNames(data.frame(assay(output.xi[[1]]), row.names = rowData(output.xi[[1]])[, 1]),
+             colData(output.xi[[1]])[, 1])
+  en.output.xi$Tissue <- rownames(en.output.xi)
+  en.output.zp <-
+    setNames(data.frame(assay(output.zp[[1]]), row.names = rowData(output.zp[[1]])[, 1]),
+             colData(output.zp[[1]])[, 1])
+  en.output.zp$Tissue <- rownames(en.output.zp)
+  en.output.zp$source <- "ZP"
+  en.output.zp <- en.output.zp[order(-en.output.zp$Log10PValue), ]
+  en.output.zp <-
+    merge(en.output.zp, zp.md, by = "row.names", all.x = TRUE)
+  en.output.zp <- rownames_to_column(en.output.zp, var = "Name")
+  en.output.vt$source <- "VT"
+  en.output.vt <- en.output.vt[order(-en.output.vt$Log10PValue), ]
+  en.output.vt <-
+    merge(en.output.vt, vt.md, by = "row.names", all.x = TRUE)
+  en.output.vt <- rownames_to_column(en.output.vt, var = "Name")
+  en.output.xi$source <- "Xi"
+  en.output.xi <- en.output.xi[order(-en.output.xi$Log10PValue), ]
+  en.output.xi <-
+    merge(en.output.xi, xi.md, by = "row.names", all.x = TRUE)
+  en.output.xi <- rownames_to_column(en.output.xi, var = "Name")
+  en.conbined <- rbind(en.output.vt, en.output.xi, en.output.zp)
+  p <- 0.05
+  logp <- -log10(p)
+  en.conbined <-  en.conbined %>%
+    mutate(Log10PValue = replace(Log10PValue, Log10PValue < logp, 0))
+  en.conbined %>%
+    group_by(source) %>%
+    arrange(source, desc(Log10PValue)) %>% dplyr::slice(1:7)  %>%
+    ungroup %>%
+    mutate(
+      source = as.factor(source),
+      CellNames = tidytext::reorder_within(CellNames, Log10PValue, source, sep = ":")
+    ) %>%
+    ggplot(aes(CellNames, Log10PValue)) + geom_bar(stat = 'identity', fill = barcolor) +  theme_minimal() +
     theme(
       axis.text.x = element_text(
-        angle = 45,
         vjust = 1,
         hjust = 1,
-        size = 10
+        size = 12
       ),
-      plot.title = element_text(size = 12),
-      plot.margin = unit(c(1, 1, 1, 2), "cm")
-    ) +
-    labs(x = "",
-         y = "-log10 p-value (adj.)",
-         title = title) +
-    scale_y_continuous(expand = expansion(mult = c(0, .1)))
+      axis.text.y = element_text(size = 12),
+      plot.margin = margin(10, 10, 10, 100),
+      legend.position = "none",
+      plot.title = element_text(
+        color = "black",
+        size = 18,
+        face = "bold.italic"
+      ),
+      axis.title.y = element_blank(),
+      axis.line.x = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.ticks.x = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.title.x = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      )
+    )  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks()) +
+    facet_wrap(~ source, scales = "free", ncol = 3) +
+    coord_flip() +
+    ggtitle(ChartTitle)
 }
 ```
 The PCE is run on each of the gene lists as follows (up and down pairs are displayed together).
 
 ## PCE plots
 
-### PCE: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
-
-```{r pce1, fig.cap="Fig 2.1: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=14}
-p <-
-  runpce(nCTvsBAP.up, "overexpressed in H9_nCT_P10_Io", "#F16746")
-q <-
-  runpce(nCTvsBAP.down, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe
-
-```{r pce2, fig.cap="Fig 2.2: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(nCTvsSTB.up, "overexpressed in H9_nCT_P10_Io", "#F16746")
-q <-
-  runpce(nCTvsSTB.down,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
-
-```{r pce3, fig.cap="Fig 2.3: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <- runpce(nTEvsSTB.up, "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <-
-  runpce(nTEvsSTB.down,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-### PCE: H9_nTE_D3_Io vs. pBAP_D3_Io
-
-```{r pce4, fig.cap="Fig 2.4: H9_nTE_D3_Io vs. pBAP_D3_Io", fig.width=8, fig.height=14}
-p <- runpce(nTEvsBAP.up, "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <-
-  runpce(nTEvsBAP.down, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-
-### PCE: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
-```{r pce5, fig.cap="Fig 2.5: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <- runpce(nTEvsL40.up, "overexpressed in H9_nTE_D3_Io", "#C79D2E")
-q <-
-  runpce(nTEvsL40.down,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AFBF38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-
-### PCE: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
-```{r pce6, fig.cap="Fig 2.6: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(nCTvsL40.up, "overexpressed in H9_nCT_P10_Io", "#F16746")
-q <-
-  runpce(nCTvsL40.down,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AFBF38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
-```{r pce7, fig.cap="Fig 2.7: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(BAPvsL40.up, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-q <-
-  runpce(BAPvsL40.down,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AFBF38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-
-### PCE: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
-```{r pce8, fig.cap="Fig 2.8: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(STBvsL40.up,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-q <-
-  runpce(STBvsL40.down,
-         "overexpressed in H1_BAP_D8_<40_Yabe",
-         "#AEBD38")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-
-### PCE: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
-```{r pce9, fig.cap="Fig 2.9: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=14}
-p <-
-  runpce(BAPvsSTB.up, "overexpressed in H9_pBAP_D3_Io", "#0773B2")
-q <-
-  runpce(BAPvsSTB.down,
-         "overexpressed in H1_BAP_D8_>70_Yabe",
-         "#5C823A")
-panel_plot <- plot_grid(p,
-                        q,
-                        labels = c("A", "B"),
-                        ncol = 1,
-                        nrow = 2)
-panel_plot
-```
-
-## Volcano plot function
-
-We will setup a function for drawing volcano plots and then run them on the DESeq2 results. The function is as shown below.
-
-```{r volcano}
-mart <-
-  read.csv(
-    "~/TutejaLab/amnion_for_ms_20210715/de-analyses/mart-genes.tsv",
-    sep = "\t",
-    stringsAsFactors = TRUE,
-    header = TRUE
-  ) #this object was obtained from Ensembl as we illustrated in "Creating gene lists"
-myVolPlot <- function(restable, first, second, shade1, shade2) {
-  restable <- restable[order(restable$padj),]
-  outTable <-
-    tibble::rownames_to_column(as.data.frame(restable), "Gene")
-  outTable <- merge(
-    outTable,
-    mart,
-    by.x = c("Gene"),
-    by.y = c("ensembl_gene_id_version"),
-    sort = FALSE
+```{r pce1, fig.cap="Fig 2.18: PCE results for H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    nCTvsBAP.dw.pce1,
+    nCTvsBAP.dw.pce2,
+    "nCTvsBAP.down_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
   )
-  outTable <- outTable %>%
-    mutate_all(na_if, "") %>%
-    mutate_all(na_if, " ") %>%
-    mutate(gene_symbol = coalesce(gene_symbol, Gene))
-  outTable$diffexpressed <- "other.genes"
-  outTable$diffexpressed[outTable$log2FoldChange >= 1 &
-                           outTable$padj <= 0.05] <-
-    paste0("Higher expression in ", first)
-  outTable$diffexpressed[outTable$log2FoldChange <= -1 &
-                           outTable$padj <= 0.05] <-
-    paste0("Higher expression in ", second)
-  outTable$delabel <- ""
-  outTable$delabel[outTable$log2FoldChange >= 1
-                   & outTable$padj <= 0.05
-                   &
-                     !is.na(outTable$padj)] <-
-    outTable$gene_symbol[outTable$log2FoldChange >= 1
-                         &
-                           outTable$padj <= 0.05
-                         &
-                           !is.na(outTable$padj)]
-  outTable$delabel[outTable$log2FoldChange <= -1
-                   & outTable$padj <= 0.05
-                   &
-                     !is.na(outTable$padj)] <-
-    outTable$gene_symbol[outTable$log2FoldChange <= -1
-                         &
-                           outTable$padj <= 0.05
-                         &
-                           !is.na(outTable$padj)]
-  ggplot(outTable,
-         aes(
-           x = log2FoldChange,
-           y = -log10(padj),
-           col = diffexpressed,
-           label = delabel
-         )) +
-    geom_point(alpha = 0.5) +
-    theme_classic() +
-    scale_color_manual(name = "Expression",
-                       values = c(shade1, shade2, "#4d4d4d")) +
-    xlab("log2 fold change") +
-    ylab("-log10 pvalue (adjusted)") +
-    theme(
-      legend.text.align = 0,
-      legend.position = c(.95, .95),
-      legend.justification = c("right", "top"),
-      legend.box.just = "right",
-      legend.margin = margin(5, 5, 5, 5)
-    )
-}
-```
-
-## Volcano Plots
-
-Running Volcano plots for each comparison are shown below.
-
-### Volcano plot: H9_nCT_P10_Io vs. H9_pBAP_D3_Io
-```{r vol1, fig.cap="Fig 2.10: H9_nCT_P10_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
-ggplotly(myVolPlot(
-  res.nCTvsBAP,
-  "H9_nCT_P10_Io",
-  "H9_pBAP_D3_Io",
-  "#F16746",
-  "#0571b0"
-))
-```
-
-### Volcano plot: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe
-```{r vol2, fig.cap="Fig 2.11: H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nCTvsSTB,
-    "H9_nCT_P10_Io",
-    "H1_BAP_D8_>70_Yabe",
-    "#5C823A",
-    "#F16746"
+b <-
+  run.all.PCE(
+    nCTvsBAP.up.pce1,
+    nCTvsBAP.up.pce2,
+    "nCTvsBAP.up_allPCE.v2",
+    "Overexpressed in H9_nCT_P10_Io",
+    "#FB6542"
   )
-)
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
 ```
-
-### Volcano plot: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe
-```{r vol3, fig.cap="Fig 2.12: H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nTEvsSTB,
-    "H9_nTE_D3_Io",
-    "H1_BAP_D8_>70_Yabe",
-    "#5C823A",
-    "#C79D2E"
+```{r pce2, fig.cap="Fig 2.19: PCE results for H9_nTE_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    nTEvsSTB.dw.pce1,
+    nTEvsSTB.dw.pce2,
+    "nTEvsSTB.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_>70_Yabe",
+    "#598234"
   )
-)
-```
-
-### Volcano plot: H9_nTE_D3_Io vs. H9_pBAP_D3_Io
-```{r vol4, fig.cap="Fig 2.13: H9_nTE_D3_Io vs. H9_pBAP_D3_Io", fig.width=8, fig.height=5}
-ggplotly(myVolPlot(
-  res.nTEvsBAP,
-  "H9_nTE_D3_Io",
-  "H9_pBAP_D3_Io",
-  "#C79D2E",
-  "#0571b0"
-))
-```
-
-### Volcano plot: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe
-```{r vol5, fig.cap="Fig 2.14: H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nTEvsL40,
-    "H9_nTE_D3_Io",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#C79D2E"
+b <-
+  run.all.PCE(
+    nTEvsSTB.up.pce1,
+    nTEvsSTB.up.pce2,
+    "nTEvsSTB.up_allPCE.v2",
+    "Overexpressed in H9_nTE_D3_Io",
+    "#C99E10"
   )
-)
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce3, fig.cap="Fig 2.20: PCE results for H9_nCT_P10_Io vs. H1_BAP_D8_>70_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    nCTvsSTB.dw.pce1,
+    nCTvsSTB.dw.pce2,
+    "nCTvsSTB.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_>70_Yabe",
+    "#598234"
+  )
+b <-
+  run.all.PCE(
+    nCTvsSTB.up.pce1,
+    nCTvsSTB.up.pce2,
+    "nCTvsSTB.up_allPCE.v2",
+    "Overexpressed in H9_nCT_P10_Io",
+    "#FB6542"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce4, fig.cap="Fig 2.21: PCE results for H9_nTE_D3_Io vs. H9_pBAP_D3_Io", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    nTEvsBAP.dw.pce1,
+    nTEvsBAP.dw.pce2,
+    "nTEvsBAP.down_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
+  )
+b <-
+  run.all.PCE(
+    nTEvsBAP.up.pce1,
+    nTEvsBAP.up.pce2,
+    "nTEvsBAP.up_allPCE.v2",
+    "Overexpressed in H9_nTE_D3_Io",
+    "#C99E10"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce5, fig.cap="Fig 2.22: PCE results for H9_nTE_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    nTEvsL40.dw.pce1,
+    nTEvsL40.dw.pce2,
+    "nTEvsL40.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_<40_Yabe",
+    "#AEBD38"
+  )
+b <-
+  run.all.PCE(
+    nTEvsL40.up.pce1,
+    nTEvsL40.up.pce2,
+    "nTEvsL40.up_allPCE.v2",
+    "Overexpressed in H9_nTE_D3_Io",
+    "#C99E10"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce6, fig.cap="Fig 2.23: PCE results for H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    nCTvsL40.dw.pce1,
+    nCTvsL40.dw.pce2,
+    "nCTvsL40.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_<40_Yabe",
+    "#AEBD38"
+  )
+b <-
+  run.all.PCE(
+    nCTvsL40.up.pce1,
+    nCTvsL40.up.pce2,
+    "nCTvsL40.up_allPCE.v2",
+    "Overexpressed in H9_nCT_P10_Io",
+    "#FB6542"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce7, fig.cap="Fig 2.24: PCE results for H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    BAPvsL40.dw.pce1,
+    BAPvsL40.dw.pce2,
+    "BAPvsL40.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_<40_Yabe",
+    "#AEBD38"
+  )
+b <-
+  run.all.PCE(
+    BAPvsL40.up.pce1,
+    BAPvsL40.up.pce2,
+    "BAPvsL40.up_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce8, fig.cap="Fig 2.25: PCE results for H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    BAPvsSTB.dw.pce1,
+    BAPvsSTB.dw.pce2,
+    "BAPvsSTB.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_>70_Yabe",
+    "#598234"
+  )
+b <-
+  run.all.PCE(
+    BAPvsSTB.up.pce1,
+    BAPvsSTB.up.pce2,
+    "BAPvsSTB.up_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce9, fig.cap="Fig 2.26: PCE results for H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    STBvsL40.dw.pce1,
+    STBvsL40.dw.pce2,
+    "STBvsL40.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_<40_Yabe",
+    "#AEBD38"
+  )
+b <-
+  run.all.PCE(
+    STBvsL40.up.pce1,
+    STBvsL40.up.pce2,
+    "STBvsL40.up_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_>70_Yabe",
+    "#598234"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce10, fig.cap="Fig 2.27: PCE results for H9_pBAP_D3_Io vs. nH9_Io", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    BAPvsNH9.dw.pce1,
+    BAPvsNH9.dw.pce2,
+    "BAPvsNH9.down_allPCE.v2",
+    "Overexpressed in nH9_Io",
+    "#483D8B"
+  )
+b <-
+  run.all.PCE(
+    BAPvsNH9.up.pce1,
+    BAPvsNH9.up.pce2,
+    "BAPvsNH9.up_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce11, fig.cap="Fig 2.28: PCE results for H1_Yabe vs. H1_BAP_D8_>70_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    UNDvsSTB.dw.pce1,
+    UNDvsSTB.dw.pce2,
+    "UNDvsSTB.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_>70_Yabe",
+    "#598234"
+  )
+b <-
+  run.all.PCE(
+    UNDvsSTB.up.pce1,
+    UNDvsSTB.up.pce2,
+    "UNDvsSTB.up_allPCE.v2",
+    "Overexpressed in H1_Yabe",
+    "#006400"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce12, fig.cap="Fig 2.29: PCE results for H9_pBAP_D3_Io vs. H9_BMP4.72h_Krendl", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    BAPvsK72.dw.pce1,
+    BAPvsK72.dw.pce2,
+    "BAPvsK72.down_allPCE.v2",
+    "Overexpressed in H9_BMP4.72h_Krendl",
+    "#EE82EE"
+  )
+b <-
+  run.all.PCE(
+    BAPvsK72.up.pce1,
+    BAPvsK72.up.pce2,
+    "BAPvsK72.up_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce13, fig.cap="Fig 2.30: PCE results for H9_BMP4.72h_Krendl vs. H1_BAP_D8_>70_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    K72vsSTB.dw.pce1,
+    K72vsSTB.dw.pce2,
+    "K72vsSTB.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_>70_Yabe",
+    "#598234"
+  )
+b <-
+  run.all.PCE(
+    K72vsSTB.up.pce1,
+    K72vsSTB.up.pce2,
+    "K72vsSTB.up_allPCE.v2",
+    "Overexpressed in H9_BMP4.72h_Krendl",
+    "#EE82EE"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce14, fig.cap="Fig 2.31: PCE results for H9_BMP4.0h_Krendl vs. H9_BMP4.72h_Krendl", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    K00vsK72.dw.pce1,
+    K00vsK72.dw.pce2,
+    "K00vsK72.down_allPCE.v2",
+    "Overexpressed in H9_BMP4.72h_Krendl",
+    "#EE82EE"
+  )
+b <-
+  run.all.PCE(
+    K00vsK72.up.pce1,
+    K00vsK72.up.pce2,
+    "K00vsK72.up_allPCE.v2",
+    "Overexpressed in H9_BMP4.0h_Krendl",
+    "#FF1493"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce15, fig.cap="Fig 2.32: PCE results for pH9_Io vs. H9_pBAP_D3_Io", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    PH9vsBAP.dw.pce1,
+    PH9vsBAP.dw.pce2,
+    "PH9vsBAP.down_allPCE.v2",
+    "Overexpressed in H9_pBAP_D3_Io",
+    "#0571B0"
+  )
+b <-
+  run.all.PCE(
+    PH9vsBAP.up.pce1,
+    PH9vsBAP.up.pce2,
+    "PH9vsBAP.up_allPCE.v2",
+    "Overexpressed in pH9_Io",
+    "#FF1493"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce16, fig.cap="Fig 2.33: PCE results for H1_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    UNDvsL40.dw.pce1,
+    UNDvsL40.dw.pce2,
+    "UNDvsL40.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_<40_Yabe",
+    "#AEBD38"
+  )
+b <-
+  run.all.PCE(
+    UNDvsL40.up.pce1,
+    UNDvsL40.up.pce2,
+    "UNDvsL40.up_allPCE.v2",
+    "Overexpressed in H1_Yabe",
+    "#006400"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
+```
+```{r pce17, fig.cap="Fig 2.34: PCE results for H9_BMP4.72h_Krendl vs. H1_BAP_D8_<40_Yabe", fig.width=14, fig.height=8}
+a <-
+  run.all.PCE(
+    K72vsL40.dw.pce1,
+    K72vsL40.dw.pce2,
+    "K72vsL40.down_allPCE.v2",
+    "Overexpressed in H1_BAP_D8_<40_Yabe",
+    "#AEBD38"
+  )
+b <-
+  run.all.PCE(
+    K72vsL40.up.pce1,
+    K72vsL40.up.pce2,
+    "K72vsL40.up_allPCE.v2",
+    "Overexpressed in H9_BMP4.72h_Krendl",
+    "#EE82EE"
+  )
+panel_plot <-
+  plot_grid(a,
+            b,
+            labels = c("A", "B"),
+            ncol = 1,
+            nrow = 2)
+panel_plot
 ```
 
-### Volcano plot: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe
-```{r vol6, fig.cap="Fig 2.15: H9_nCT_P10_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.nCTvsL40,
-    "H9_nCT_P10_Io",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#F16746"
-  )
-)
-```
 
-### Volcano plot: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe
-```{r vol7, fig.cap="Fig 2.16: H9_pBAP_D3_Io vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.BAPvsL40,
-    "H9_pBAP_D3_Io",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#0571b0"
-  )
-)
-```
-
-### Volcano plot: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe
-```{r vol8, fig.cap="Fig 2.17: H1_BAP_D8_>70_Yabe vs. H1_BAP_D8_<40_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.STBvsL40,
-    "H1_BAP_D8_>70_Yabe",
-    "H1_BAP_D8_<40_Yabe",
-    "#AEBD38",
-    "#5C823A"
-  )
-)
-```
-
-### Volcano plot: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe
-```{r vol9, fig.cap="Fig 2.18: H9_pBAP_D3_Io vs. H1_BAP_D8_>70_Yabe", fig.width=8, fig.height=5}
-ggplotly(
-  myVolPlot(
-    res.BAPvsSTB,
-    "H9_pBAP_D3_Io",
-    "H1_BAP_D8_>70_Yabe",
-    "#5C823A",
-    "#0571b0"
-  )
-)
-```
 ## Session Information
 
 ```{r sessioninfo}

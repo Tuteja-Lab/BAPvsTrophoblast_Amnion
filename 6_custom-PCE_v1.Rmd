@@ -1,0 +1,229 @@
+---
+title: "Section X: Custom PCE dataset generation"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+  - name: Ha Vu
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+
+## Generating custom PCE datasets
+
+list the datasets being used in the section.
+
+## Prerequisites
+
+R packages required for this section are loaded.
+
+```{r prerequisite, warnings=TRUE, message=FALSE}
+setwd("~/github/BAPvsTrophoblast_Amnion")
+library(tidyverse)
+library(TissueEnrich)
+library(R.utils)
+```
+
+## Download coutns file
+
+```{r download, warnings=TRUE, message=FALSE}
+zplink <-
+  "https://iastate.box.com/shared/static/pb42m8gz4sgmlvzlxxcdk22ec1ke6z8a.gz"
+download.file(zplink, "ZhouPetro_rawCounts_tpm.txt.gz")
+gunzip("ZhouPetro_rawCounts_tpm.txt.gz")
+xilink <-
+  "https://iastate.box.com/shared/static/5jhfv20ljybj4isvwidzl4rd06ncvnfl.gz"
+download.file(xilink, "combined_555_rawCounts_tpm.txt.gz")
+gunzip("combined_555_rawCounts_tpm.txt.gz")
+```
+
+
+## Castel
+
+
+```{r castel, warnings=TRUE, message=FALSE}
+cts.castel <-
+  as.matrix(read.csv(
+    "ZhouPetro_rawCounts_tpm.txt",
+    sep = "\t",
+    row.names = "Geneid"
+  ))
+md.castel <-
+  read.csv(
+    "assets/metadata_castel.tsv",
+    sep = "\t",
+    header = FALSE,
+    row.names = 1
+  )
+mycts.t <- as.data.frame(t(cts.castel))
+metadata <- md.castel
+colnames(metadata) <- c("days", "celltypes")
+metadata <- metadata[2]
+merged.table <-
+  merge(metadata, mycts.t, by = "row.names", all.x = TRUE)
+merged.table <-
+  merged.table %>% remove_rownames %>% column_to_rownames(var = "Row.names")
+mycts.mean <- aggregate(. ~ celltypes, merged.table, mean)
+ordered <-
+  as.data.frame(t(
+    mycts.mean %>% remove_rownames %>% column_to_rownames(var = "celltypes")
+  ))
+se <-
+  SummarizedExperiment(
+    assays = SimpleList(as.matrix(ordered)),
+    rowData = row.names(ordered),
+    colData = colnames(ordered)
+  )
+te.dataset.castel <- teGeneRetrieval(se)
+saveRDS(te.dataset.castel, file = "te.dataset.castel.rds")
+results.summary <- as.data.frame(assay(te.dataset.castel))
+```
+
+```{r theme, warnings=TRUE, message=FALSE}
+# DISTRIBUTIONS ----
+# Setting a custom ggplot2 function
+# This function makes a pretty ggplot theme
+# This function takes no arguments 
+# meaning that you always have just niwot_theme() and not niwot_theme(something else here)
+# source: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
+
+theme_niwot <- function(){
+  theme_bw() +
+    theme(axis.text.y = element_text(size = 12),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12), 
+          axis.title = element_text(size = 14),
+          axis.line.x = element_line(color="black"), 
+          axis.line.y = element_line(color="black"),
+          panel.border = element_blank(),
+          panel.grid.major.x = element_blank(),                                          
+          panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),  
+          plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
+          plot.title = element_text(size = 18, vjust = 1, hjust = 0),
+          legend.text = element_text(size = 12),          
+          legend.title = element_blank(),                              
+          legend.position = c(0.95, 0.15), 
+          legend.key = element_blank(),
+          legend.background = element_rect(color = "black", 
+                                           fill = "transparent", 
+                                           size = 2, linetype = "blank"))
+}
+
+```
+```{r castel.bar1, fig.cap="Fig X.1: Castel Dataset tissue enrichement distribution", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Tissue)) +
+    stat_count(alpha = 0.6, fill = "palegreen4") +
+  theme_niwot() + 
+  scale_y_log10() +
+  xlab("Cell Types") +
+  ylab("Number of Genes enriched")
+```
+
+
+```{r castel.bar2, fig.cap="Fig X.2: Castel Dataset tissue enrichement results", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Group)) +
+    stat_count(alpha = 0.6, fill = "slateblue") +
+  theme_niwot() + 
+  xlab("Enrichment Type") +
+  ylab("Number of Genes enriched")
+```
+
+
+## Xiang
+
+
+```{r xiang, warnings=TRUE, message=FALSE}
+cts.xiang <-
+  as.matrix(read.csv(
+    "combined_555_rawCounts_tpm.txt",
+    sep = "\t",
+    row.names = "Geneid"
+  ))
+md.xiang <-
+  read.csv(
+    "assets/metadata_555.txt",
+    sep = "\t",
+    header = FALSE,
+    row.names = 1
+  )
+mycts.t <- as.data.frame(t(cts.xiang))
+metadata <- md.xiang
+colnames(metadata) <- c("days", "celltypes")
+metadata <- metadata[2]
+merged.table <- merge(metadata, mycts.t, by = "row.names", all.x = TRUE)
+merged.table <-
+  merged.table %>% remove_rownames %>% column_to_rownames(var = "Row.names")
+mycts.mean <- aggregate(. ~ celltypes, merged.table, mean)
+ordered <-
+  as.data.frame(t(
+    mycts.mean %>% remove_rownames %>% column_to_rownames(var = "celltypes")
+  ))
+se <-
+  SummarizedExperiment(
+    assays = SimpleList(as.matrix(ordered)),
+    rowData = row.names(ordered),
+    colData = colnames(ordered)
+  )
+te.dataset.xiang <-
+  teGeneRetrieval(
+    se,
+    foldChangeThreshold = 5,
+    maxNumberOfTissues = 6,
+    expressedGeneThreshold = 1
+  )
+saveRDS(te.dataset.xiang, file = "te.dataset.xiang.rds")
+results.summary <- as.data.frame(assay(te.dataset.xiang))
+```
+```{r xiang.bar1, fig.cap="Fig X.1: Xiang Dataset tissue enrichement distribution", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Tissue)) +
+    stat_count(alpha = 0.6, fill = "palegreen4") +
+  theme_niwot() + 
+  scale_y_log10() +
+  xlab("Cell Types") +
+  ylab("Number of Genes enriched")
+```
+
+
+```{r Xiang.bar2, fig.cap="Fig X.2: Xiang Dataset tissue enrichement results", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Group)) +
+    stat_count(alpha = 0.6, fill = "slateblue") +
+  theme_niwot() + 
+  xlab("Enrichment Type") +
+  ylab("Number of Genes enriched")
+```
+
+
+## Save Image file
+
+```{r image, warnings=TRUE, message=FALSE}
+save.image(file = "customPCE_data.RData")
+```
+
+## Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```

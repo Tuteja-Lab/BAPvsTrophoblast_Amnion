@@ -1,5 +1,5 @@
 ---
-title: "Section 4: Heatmaps"
+title: "Section 4: Amnion Markers"
 date: "`r Sys.Date()`"
 author:
   - name: Arun Seetharam
@@ -30,11 +30,6 @@ knitr::opts_chunk$set(
 )
 knitr::opts_knit$set(width = 75)
 ```
-
-## Generating heatmaps for selected genes
-
-This section uses the count data (selected datasets) generated in Section 1 for generating heatmaps. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation is performed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
-
 ## Prerequisites
 
 R packages required for this section are loaded.
@@ -48,18 +43,87 @@ library(vsn)
 library(pheatmap)
 library(ggrepel)
 library(RColorBrewer)
-library(biomaRt)
 library(reshape2)
-library(plotly)
+library(scales)
+require(biomaRt)
+library(EnhancedVolcano)
+library(TissueEnrich)
+library(corrplot)
+library(rstatix)
+library(ggpubr)
+library(car)
+library(FSA)
+library(PupillometryR)
 ```
 
-## Import datasets
+## Finding Amnion markers using `TissueEnrich`
 
+```{r markers, warnings=TRUE, message=FALSE}
+# Roost and Suzuki data used as different amnion tissues
+cts.full <-
+  as.matrix(read.csv(
+    "assets/counts-batch-corrected-v5_tpm.txt",
+    sep = "\t",
+    row.names = "gene"
+  ))
+md.full <-
+  read.csv(
+    "assets/coldata-batch-corrected-v5.txt",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+mycts.t <- as.data.frame(t(cts.full))
+metadata <- md.full[2]
+merged.table <-
+  merge(metadata, mycts.t, by = "row.names", all.x = TRUE)
+merged.table <-
+  merged.table %>% remove_rownames %>% column_to_rownames(var = "Row.names")
+mycts.mean <- aggregate(. ~ group, merged.table, mean)
+ordered <-
+  as.data.frame(t(
+    mycts.mean %>% remove_rownames %>% column_to_rownames(var = "group")
+  ))
+se <-
+  SummarizedExperiment(
+    assays = SimpleList(as.matrix(ordered)),
+    rowData = row.names(ordered),
+    colData = colnames(ordered)
+  )
+
+# results for TE enrichment, max tissues =2; fc threshold = 10; and expression threshold 1
+output <- teGeneRetrieval(
+  se,
+  foldChangeThreshold = 10,
+  maxNumberOfTissues = 2,
+  expressedGeneThreshold = 1
+)
+te.results.split <- as.data.frame(assay(output))
+write.table(
+  te.results.split,
+  file = "enrichment-results_fc10_split.tsv",
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+full.split <- as.data.frame(assay(output))
+amnion.roost <- subset(full.split, Tissue == 'amnion')
+amnion.suzuki <- subset(full.split, Tissue == 'amnion_Term')
+```
+
+
+## Processing data for plotting heatmaps
+
+This section uses the count data (selected datasets) generated in Section 1 for generating heatmaps. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation is performed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
+
+
+### Dataset import
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
 ```{r dataset, warnings=TRUE, message=FALSE}
-counts = 'assets/counts.tsv'
-groupFile = 'assets/batch.tsv'
+counts = 'assets/counts-pca-v2.txt'
+groupFile = 'assets/batch-pca-v2.txt'
 coldata <-
   read.csv(
     groupFile,
@@ -83,7 +147,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## Batch correction
+### Batch correction
 
 Using `ComBat_seq` (SVA package) to run batch correction - using bioproject IDs as variable (dataset origin).
 
@@ -94,7 +158,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## run DESeq2
+### run DESeq2
 
 The batch corrected read counts are then used for running DESeq2 analyses.
 
@@ -108,7 +172,7 @@ dds <- dds[keep, ]
 dds <- DESeq(dds)
 ```
 
-Normalize counts.
+### Normalize counts.
 
 ```{r normtable, warnings=TRUE, message=FALSE}
 normalized_counts <- counts(dds, normalized = T) %>%
@@ -118,176 +182,514 @@ normalized_counts <- normalized_counts %>%
   as_tibble()
 ```
 
-### Data for monkey amnion genes
+## Ensembl id table
 
-```{r monkey, warnings=TRUE, message=FALSE}
-file1 <- "assets/genes-monkey.txt"
-monkey <-
-  read.csv(file1,
-           sep = "\t",
-           header = TRUE,
-           stringsAsFactors = FALSE)
-genes.monkey = monkey$genes
-attributes = c('ensembl_gene_id_version', 'hgnc_symbol')
-mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-G_list <-
-  getBM(
-    attributes = attributes,
-    filters = "hgnc_symbol",
-    values = genes.monkey,
-    mart = mart,
-    uniqueRows = T
+The gene lists have Ensembl gene-ID-version. We need them as gene-IDs. We also need other metadata later for these lists.
+From Ensembl we will download metadata and attach to these lists.
+
+```{r annotations, warnings=TRUE, message=FALSE}
+ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+listDatasets(ensembl) %>%
+  filter(str_detect(description, "Human"))
+ensembl = useDataset("hsapiens_gene_ensembl", mart = ensembl)
+listFilters(ensembl) %>%
+  filter(str_detect(name, "ensembl"))
+filterType <- "ensembl_gene_id_version"
+filterValues <- rownames(cts)
+listAttributes(ensembl) %>%
+  head(20)
+attributeNames <- c('ensembl_gene_id_version',
+                    'ensembl_gene_id',
+                    'external_gene_name')
+annot <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+isDup <- duplicated(annot$ensembl_gene_id)
+dup <- annot$ensembl_gene_id[isDup]
+annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
+```
+
+
+## Required Functions
+
+convert geneids function
+```{r idsFun, warnings=TRUE, message=FALSE}
+addGeneIds <- function(df) {
+  merge(
+    df,
+    annot,
+    by.x = "Gene",
+    by.y = "ensembl_gene_id",
+    all.x = TRUE,
+    all.y = FALSE
+  ) %>% drop_na() %>% filter(external_gene_name != "")
+}
+```
+correlation function
+```{r corFun, warnings=TRUE, message=FALSE}
+cor.mtest <- function(mat, ...) {
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat<- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      tmp <- cor.test(mat[, i], mat[, j], ...)
+      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+    }
+  }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+```
+Data summary for the violin plots
+```{r StatFun, warnings=TRUE, message=FALSE}
+data_summary <- function(x) {
+  m <- mean(x)
+  ymin <- m-sd(x)
+  ymax <- m+sd(x)
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+```
+Theme for the plots
+```{r themeFun, warnings=TRUE, message=FALSE}
+# SOURCE: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
+theme_niwot <- function(){
+  theme_bw() +
+    theme(axis.text = element_text(size = 16), 
+          axis.title = element_text(size = 18),
+          axis.line.x = element_line(color="black"), 
+          axis.line.y = element_line(color="black"),
+          panel.border = element_blank(),
+          panel.grid.major.x = element_blank(),                                          
+          panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),  
+          plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
+          plot.title = element_text(size = 18, vjust = 1, hjust = 0),
+          legend.text = element_text(size = 12),          
+          legend.title = element_blank(),                              
+          legend.position = c(0.95, 0.15), 
+          legend.key = element_blank(),
+          legend.background = element_rect(color = "black", 
+                                           fill = "transparent", 
+                                           size = 2, linetype = "blank"))
+}
+```
+
+```{r htmpFun, warnings=TRUE, message=FALSE}
+runheatmap <-
+  function(get_table = table,
+           filename = "test_name",
+           num = 20,
+           ChartTitle = "Title") {
+    norm.filtered.subset.long <- get_table
+    norm.filtered.subset.table <-
+      dcast(norm.filtered.subset.long,
+            external_gene_name ~ condition,
+            value.var = "norm.expression")
+    write_delim(
+      norm.filtered.subset.table,
+      file = paste0(filename, "_expValues.tsv"),
+      delim = "\t"
+    )
+    temp <- norm.filtered.subset.table[, -1]
+    row.names(temp) <- norm.filtered.subset.table[, 1]
+    norm.filtered.subset.table <- temp
+    annotation <- data.frame(Condition = colnames(temp))
+    heat_colors <- brewer.pal(9, "YlOrRd")
+    rownames(annotation) <- colnames(norm.filtered.subset.table)
+    annotation$Condition <-
+      factor(
+        annotation$Condition,
+        levels = c(
+          "amnion_9w.1",
+          "amnion_9w.2",
+          "amnion_16w.2",
+          "amnion_18w.1",
+          "amnion_18w.2",
+          "amnion_22w.1",
+          "amnion_22w.2",
+          "CT_7wk.1",
+          "CT_7wk.2",
+          "CT_9wk.1",
+          "CT_11wk.1",
+          "pBAP_D3.1",
+          "pBAP_D3.2",
+          "hESC_H9_BMP4_72h.1",
+          "hESC_H9_BMP4_72h.2",
+          "H1_gt70_D8_BAP.1",
+          "H1_gt70_D8_BAP.2",
+          "H1_gt70_D8_BAP.3"
+        )
+      )
+    annotation$sample[which(str_detect(annotation$Condition, "CT"))] <-
+      "CT"
+    annotation$sample[which(str_detect(annotation$Condition, "amnion"))] <-
+      "Amnion"
+    annotation$sample[which(str_detect(annotation$Condition, "pBAP_D3"))] <-
+      "pBAP_D3"
+    annotation$sample[which(str_detect(annotation$Condition, "hESC_H9_BMP4_72h"))] <-
+      "BMP4_D3"
+    annotation$sample[which(str_detect(annotation$Condition, "H1_gt70_D8_BAP"))] <-
+      "BAP_Yabe"
+    
+    annotation <- annotation %>%
+      arrange(levels = Condition)
+    hmap.data <- as.matrix(norm.filtered.subset.table[, c(
+      "amnion_9w.1",
+      "amnion_9w.2",
+      "amnion_16w.2",
+      "amnion_18w.1",
+      "amnion_18w.2",
+      "amnion_22w.1",
+      "amnion_22w.2",
+      "CT_7wk.1",
+      "CT_7wk.2",
+      "CT_9wk.1",
+      "CT_11wk.1",
+      "pBAP_D3.1",
+      "pBAP_D3.2",
+      "hESC_H9_BMP4_72h.1",
+      "hESC_H9_BMP4_72h.2",
+      "H1_gt70_D8_BAP.1",
+      "H1_gt70_D8_BAP.2",
+      "H1_gt70_D8_BAP.3"
+    )])
+    g <- pheatmap(
+      hmap.data,
+      color = heat_colors,
+      main = ChartTitle,
+      cluster_rows = F,
+      cluster_cols  = F,
+      show_rownames = T,
+      annotation_col = annotation,
+      border_color = NA,
+      fontsize = 14,
+      scale = "row",
+      fontsize_row = 10
+    )
+    g
+  }
+```
+
+
+```{r tableFun, warnings=TRUE, message=FALSE}
+getTable <- function(genelist = df) {
+  norm.filtered.table <- normalized_counts %>% filter(gene %in% genelist$ensembl_gene_id_version)
+  norm.filtered.long <- melt(norm.filtered.table, id.vars="gene")
+  defile= "assets/datasets_to_plot.v2.txt"
+  decoldata <- read.csv(defile, sep="\t", stringsAsFactors = TRUE)
+  de_names <- decoldata$name
+  norm.filtered.subset.long <- norm.filtered.long %>% filter (variable %in% de_names)
+  colnames(norm.filtered.subset.long) <- c("gene", "condition", "norm.expression")
+  norm.filtered.subset.long <- merge(norm.filtered.subset.long, annot,
+                                     by.x = "gene",
+                                     by.y = "ensembl_gene_id_version",
+                                     all.x = TRUE,
+                                     all.y = FALSE) %>% drop_na() %>% filter(external_gene_name != "")
+  norm.filtered.subset.long
+}
+```
+
+```{r corplotFun, warnings=TRUE, message=FALSE}  
+  corPlot <- function(get_table = table, ChartTitle = "Title") {
+  norm.filtered.subset.long <- get_table
+  norm.filtered.subset.table <- dcast(norm.filtered.subset.long, external_gene_name ~ condition, value.var="norm.expression")
+  temp <- norm.filtered.subset.table[,-1]
+  row.names(temp) <- norm.filtered.subset.table[,1]
+  norm.filtered.subset.table <- temp
+  pcor <- cor(as.matrix(norm.filtered.subset.table), method = "spearman")
+  p.mat <- cor.mtest(as.matrix(norm.filtered.subset.table))
+  col <- colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+  corrplot(
+    pcor,
+    method = "color",
+    col = col(200),
+    type = "upper",
+    order = "hclust",
+    addCoef.col = "darkorchid",
+    pch.cex = 1.5,
+    p.mat = p.mat,
+    insig = 'label_sig',
+    sig.level = c(0.001, 0.01, 0.05),
+    tl.col = "black",
+    tl.srt = 45,
+    number.cex = 0.8,
+    tl.cex = 1,
+    pch.col = "tomato",
+    diag = FALSE,
+    font.main = 4,
+    mar = c(0, 0, 1, 0)
   )
-norm_selected <- normalized_counts %>%
-  filter(gene %in% G_list$ensembl_gene_id_version)
-write_delim(norm_selected, file = "assets/monkey_genes_normalized-table.tsv", delim = "\t")
-```
-Inspect.
-
-```{r monkeytable}
-DT::datatable(norm_selected)
+}
 ```
 
-Data processing.
 
-```{r monkey2, warnings=TRUE, message=FALSE}
-norm.selected.long <- melt(norm_selected, id.vars = "gene")
-defile = "assets/celltypes-for-heatmap.txt"
-decoldata <-
-  read.csv(defile,
-           sep = "\t",
-           header = TRUE,
-           stringsAsFactors = TRUE)
-de_names <- decoldata$name
-de.norm.selected.long <-
-  norm.selected.long %>% filter (variable %in% de_names)
-colnames(de.norm.selected.long) <-
-  c("gene", "condition", "norm.expression")
-de.norm.selected.long <- merge(
-  de.norm.selected.long,
-  G_list,
-  by.x = "gene",
-  by.y = "ensembl_gene_id_version",
+```{r normFun, warnings=TRUE, message=FALSE}
+  normTestEach <- function(get_table = table, ChartTitle = "Title") {
+  norm.filtered.subset.long <- get_table
+  ggplot(norm.filtered.subset.long, aes(x = norm.expression)) + 
+    stat_density(color="darkblue", fill="lightblue") + 
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12),
+          axis.text.y = element_text(size = 12),
+          plot.margin = margin(10, 10, 10, 100), legend.position = "none",
+          plot.title = element_text(color = "black", size=18, face="bold.italic"),
+          axis.line.x = element_line(colour = 'black', size=0.5, linetype='solid'),
+          axis.ticks.x = element_line(colour = 'black', size=1, linetype='solid'),
+          axis.title.x = element_text(color="black", size=14, face="bold"),
+          axis.line.y = element_line(colour = 'black', size=0.5, linetype='solid'),
+          axis.ticks.y = element_line(colour = 'black', size=1, linetype='solid'),
+          axis.title.y = element_text(color="black", size=14, face="bold"))  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks= pretty_breaks()) +
+    facet_wrap(~ condition, ncol = 5) +
+    scale_x_log10()
+  }
+```
+
+```{r normAllFun, warnings=TRUE, message=FALSE}
+  normTestAll <- function(get_table = table, ChartTitle = "Title") {
+  norm.filtered.subset.long <- get_table 
+  ggplot(norm.filtered.subset.long, aes(x = norm.expression)) + 
+    stat_density(color="purple", fill="dodgerblue") +
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12),
+          axis.text.y = element_text(size = 12),
+          plot.margin = margin(10, 10, 10, 100), legend.position = "none",
+          plot.title = element_text(color = "black", size=18, face="bold.italic"),
+          axis.line.x = element_line(colour = 'black', size=0.5, linetype='solid'),
+          axis.line.y = element_line(colour = 'black', size=0.5, linetype='solid'),
+          axis.ticks.x = element_line(colour = 'black', size=1, linetype='solid'),
+          axis.ticks.y = element_line(colour = 'black', size=1, linetype='solid'),
+          axis.title.x = element_text(color="black", size=14, face="bold"),
+          axis.title.y = element_text(color="black", size=14, face="bold"))  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks= pretty_breaks()) +
+    scale_x_log10()
+  }
+```
+```{r addSampleFun, warnings=TRUE, message=FALSE}
+addSampleInfo <- function(get_table = table) {
+  norm.filtered.subset.long <- get_table
+  norm.filtered.subset.long$sample <- "NA"
+  norm.filtered.subset.long$sample[which(str_detect(norm.filtered.subset.long$condition, "CT"))] <-
+    "CT"
+  norm.filtered.subset.long$sample[which(str_detect(norm.filtered.subset.long$condition, "amnion"))] <-
+    "Amnion"
+  norm.filtered.subset.long$sample[which(str_detect(norm.filtered.subset.long$condition, "pBAP_D3"))] <-
+    "pBAP_D3"
+  norm.filtered.subset.long$sample[which(str_detect(norm.filtered.subset.long$condition, "hESC_H9_BMP4_72h"))] <-
+    "BMP4_D3"
+  norm.filtered.subset.long$sample[which(str_detect(norm.filtered.subset.long$condition, "H1_gt70_D8_BAP"))] <-
+    "BAP_Yabe"
+  norm.filtered.subset.long$sample <-
+    factor(
+      norm.filtered.subset.long$sample,
+      levels = c("Amnion",
+                 "CT",
+                 "pBAP_D3",
+                 "BMP4_D3",
+                 "BAP_Yabe")
+    )
+  norm.filtered.subset.long
+}
+```
+
+```{r vlnPlotFun, warnings=TRUE, message=FALSE}
+vlnPlot <- function(info_table = Infotable) {
+  norm.filtered.subset.long <- info_table
+  ggplot(data = norm.filtered.subset.long,
+         aes(x = sample, y = norm.expression, fill = sample)) +
+    geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
+                     alpha = 0.8,
+                     trim = FALSE) +
+    geom_point(
+      aes(y = norm.expression, color = sample),
+      position = position_jitter(width = 0.15),
+      size = 1,
+      alpha = 0.5
+    ) +
+    geom_boxplot(width = 0.2,
+                 outlier.shape = NA,
+                 alpha = 0.8) + stat_summary(
+                   fun = mean,
+                   geom = "point",
+                   shape = 23,
+                   size = 2
+                 ) +
+    labs(y = "\nNormalized Expression", x = NULL) +
+    guides(fill = "none", color = "none") +
+    scale_y_log10() +
+    scale_fill_manual(values = c("#F3766E", "#81AE40", "#0571B0", "#EE82EE", "#598234")) +
+    scale_colour_manual(values = c("#F3766E", "#81AE40", "#0571B0", "#EE82EE", "#598234")) +
+    theme_niwot() 
+}
+```
+
+## Prepare gene lists
+
+Amnion markers genes using Roost dataset (generated using `TissueEnrich`)
+
+```{r markers1, warnings=TRUE, message=FALSE}
+amnion.roost.names <- addGeneIds(amnion.roost)
+```
+
+Amnion markers genes using Roost dataset (from Io _et al_.,)
+```{r markers2, warnings=TRUE, message=FALSE}
+file1 <- "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-Fig6b.txt"
+fig6b <- read.csv(file1, sep="\t", header = TRUE, stringsAsFactors = FALSE)
+fig6b <- merge(
+  fig6b,
+  annot,
+  by.x = "genes",
+  by.y = "external_gene_name",
   all.x = TRUE,
   all.y = FALSE
-)
-de.norm.selected.wide <-
-  dcast(de.norm.selected.long, hgnc_symbol ~ condition, value.var = "norm.expression")
-temp <- de.norm.selected.wide[, -1]
-row.names(temp) <- de.norm.selected.wide[, 1]
-annotation <-
-  data.frame(Condition = factor(1:9, labels = gsub('.{2}$', '', colnames(temp))))
-heat_colors <- brewer.pal(9, "YlOrRd")
-rownames(annotation) <- colnames(temp)
-temp <- temp[, c(8, 9, 5, 6, 7, 2, 3, 4, 1)]
+) %>% drop_na() 
 ```
 
-Visualization.
-
-```{r heatmap1, fig.cap="Fig 4.1: Heatmap comparing the monkey amnion genes across various datasets", fig.width=8, fig.height=8}
-pheatmap(
-  as.matrix(temp),
-  color = heat_colors,
-  cluster_cols = F,
-  cluster_rows = F,
-  show_rownames = T,
-  annotation_col = annotation,
-  border_color = NA,
-  fontsize = 11,
-  scale = "row",
-  fontsize_row = 11
-)
-```
-
-### Data for amnion genes from supplement table of Io paper
-
-```{r supp2read, warnings=TRUE, message=FALSE}
-supp2 <- merge(
-  norm_selected,
-  G_list,
-  by.x = "gene",
-  by.y = "ensembl_gene_id_version",
-  all.x = TRUE,
-  all.y = TRUE
-)
-write_delim(supp2, file = "assets/supp2_normalized-table.tsv", delim = "\t")
-```
-
-Inspect.
-
-```{r supptable}
-DT::datatable(supp2)
-```
-
-Processing.
-
-```{r supp2process, warnings=TRUE, message=FALSE}
-file1 <- "assets/genes-Fig6b.txt"
-fig6b <-
-  read.csv(file1,
-           sep = "\t",
-           header = TRUE,
-           stringsAsFactors = FALSE)
-genes.fig6b = fig6b$genes
-attributes = c('ensembl_gene_id_version', 'hgnc_symbol')
-mart <- useMart("ensembl", dataset = "hsapiens_gene_ensembl")
-G_list <-
-  getBM(
-    attributes = attributes,
-    filters = "hgnc_symbol",
-    values = genes.fig6b,
-    mart = mart,
-    uniqueRows = T
-  )
-norm_selected <- normalized_counts %>%
-  filter(gene %in% G_list$ensembl_gene_id_version)
-norm.selected.long <- melt(norm_selected, id.vars = "gene")
-defile = "assets/celltypes-for-heatmap.txt"
-decoldata <-
-  read.csv(defile,
-           sep = "\t",
-           header = TRUE,
-           stringsAsFactors = TRUE)
-de_names <- decoldata$name
-de.norm.selected.long <-
-  norm.selected.long %>% filter (variable %in% de_names)
-colnames(de.norm.selected.long) <-
-  c("gene", "condition", "norm.expression")
-de.norm.selected.long <- merge(
-  de.norm.selected.long,
-  G_list,
-  by.x = "gene",
-  by.y = "ensembl_gene_id_version",
+Money amnion markers
+```{r markers3, warnings=TRUE, message=FALSE}
+file2 <- "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-monkey.txt"
+monkey <- read.csv(file2, sep="\t", header = TRUE, stringsAsFactors = FALSE)
+monkey <- merge(
+  monkey,
+  annot,
+  by.x = "genes",
+  by.y = "external_gene_name",
   all.x = TRUE,
   all.y = FALSE
-)
-de.norm.selected.wide <-
-  dcast(de.norm.selected.long, hgnc_symbol ~ condition, value.var = "norm.expression")
-temp <- de.norm.selected.wide[, -1]
-row.names(temp) <- de.norm.selected.wide[, 1]
-annotation <-
-  data.frame(Condition = factor(1:9, labels = gsub('.{2}$', '', colnames(temp))))
-heat_colors <- brewer.pal(9, "YlOrRd")
-rownames(annotation) <- colnames(temp)
-temp <- temp[, c(8, 9, 5, 6, 7, 2, 3, 4, 1)]
-```
-Visualization.
+) %>% drop_na() 
 
-```{r heatmap2, fig.cap="Fig 4.2: Heatmap comparing the Io amnion genes across various datasets", fig.width=8, fig.height=20}
-g <- pheatmap(
-  as.matrix(temp),
-  color = heat_colors,
-  cluster_cols = F,
-  cluster_rows = F,
-  show_rownames = T,
-  annotation_col = annotation,
-  border_color = NA,
-  fontsize = 11,
-  scale = "row",
-  fontsize_row = 11
-)
-g
 ```
+
+## Format Conversion
+
+```{r tableout1, warnings=TRUE, message=FALSE}
+amnion.roost.new1 <- getTable(amnion.roost.names)
+amnion.roost.old1 <- getTable(fig6b)
+amnion.monkey1 <- getTable(monkey)
+```
+
+```{r tableout2, warnings=TRUE, message=FALSE}
+amnion.roost.new2 <- addSampleInfo(amnion.roost.new1)
+amnion.roost.old2 <-addSampleInfo(amnion.roost.old1)
+amnion.monkey2 <- addSampleInfo(amnion.monkey1)
+```
+
+
+## Visulaization (new Amnion marker genes)
+
+
+```{r hm1a, fig.cap="Fig 4.1: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(amnion.roost.new1)
+```
+
+```{r cor1a, fig.cap="Fig 4.2: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.roost.new1)
+```
+```{r normeach1a, fig.cap="Fig 4.2: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.roost.new1)
+```
+```{r normall1a, fig.cap="Fig 4.2: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.roost.new1)
+```
+```{r dt1a, warnings=TRUE, message=FALSE}
+shapiro.each <- amnion.roost.new1 %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each)
+```
+```{r dt2a, warnings=TRUE, message=FALSE}
+amnion.roost.new1 %>%  shapiro_test(norm.expression)
+```
+```{r dt3a, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ sample, data = amnion.roost.new2)
+```
+```{r dt4a, warnings=TRUE, message=FALSE}
+dunnTest <- dunnTest(norm.expression ~ sample, data=amnion.roost.new2, method="bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1a, fig.cap="Fig 4.2: Violin plot for the new amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.roost.new2)
+```
+  
+
+## Visulaization (old Amnion marker genes)
+
+
+```{r hm1b, fig.cap="Fig 4.1: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(amnion.roost.old1)
+```
+
+```{r cor1b, fig.cap="Fig 4.2: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.roost.old1)
+```
+```{r normeach1b, fig.cap="Fig 4.2: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.roost.old1)
+```
+```{r normall1b, fig.cap="Fig 4.2: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.roost.old1)
+```
+```{r dt1b, warnings=TRUE, message=FALSE}
+shapiro.each <- amnion.roost.old1 %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each)
+```
+```{r dt2b, warnings=TRUE, message=FALSE}
+amnion.roost.old1 %>%  shapiro_test(norm.expression)
+```
+```{r dt3b, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ sample, data = amnion.roost.old2)
+```
+```{r dt4b, warnings=TRUE, message=FALSE}
+dunnTest <- dunnTest(norm.expression ~ sample, data=amnion.roost.old2, method="bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1b, fig.cap="Fig 4.2: Violin plot for the new amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.roost.old2)
+```
+  
+
+
+
+## Visulaization (monkey amnion genes)
+
+
+```{r hm1c, fig.cap="Fig 4.1: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(amnion.monkey1)
+```
+
+```{r cor1c, fig.cap="Fig 4.2: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.monkey1)
+```
+```{r normeach1c, fig.cap="Fig 4.2: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.monkey1)
+```
+```{r normall1c, fig.cap="Fig 4.2: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.monkey1)
+```
+```{r dt1c, warnings=TRUE, message=FALSE}
+shapiro.each <- amnion.monkey1 %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each)
+```
+```{r dt2c, warnings=TRUE, message=FALSE}
+amnion.monkey1 %>%  shapiro_test(norm.expression)
+```
+```{r dt3c, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ sample, data = amnion.monkey2)
+```
+```{r dt4c, warnings=TRUE, message=FALSE}
+dunnTest <- dunnTest(norm.expression ~ sample, data=amnion.monkey2, method="bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1c, fig.cap="Fig 4.2: Violin plot for the new amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.monkey2)
+```
+  
 
 ## Session Information
 

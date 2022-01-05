@@ -1,0 +1,20 @@
+Cells	CellNames
+B1_B2	B1-B2 blastocyst
+early_TE	early trophectoderm
+EightCells	8cells embryo
+EPI	Epiblast
+EVT	Extravillous TB
+late_TE	late trophectoderm 
+medium_TE	medium trophectoderm
+Morula	Morula
+PrE	primitive endoderm
+Pre.EVT	Pre.Extravillous TB
+Pre.ST	Pre.Syncytio TB
+ST	Syncytio TB
+TB.apoptosis	TB.apoptosis
+TB.early	TB.early
+TB.late	TB.late
+TB.medium1	TB.medium1
+TB.medium2	TB.medium2
+TB.medium3	TB.medium3
+ysTE	yolk-sac TE
