@@ -46,7 +46,7 @@ library(TissueEnrich)
 library(R.utils)
 ```
 
-## Download coutns file
+## Download counts file
 
 ```{r download, warnings=TRUE, message=FALSE}
 zplink <-

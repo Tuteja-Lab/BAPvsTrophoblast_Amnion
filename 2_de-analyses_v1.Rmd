@@ -340,8 +340,8 @@ processDE(res.BAPvsK72, "BAPvsK72")
 processDE(res.K72vsSTB, "K72vsSTB")
 processDE(res.K00vsK72, "K00vsK72")
 processDE(res.PH9vsBAP, "PH9vsBAP")
-processDE(res.UNDvsL40, "UNDvsL40")
-processDE(res.K72vsL40, "K72vsL40")
+processDE(res.UNDvsL40, "UNDvsL40") #these comparisons are not in the supp tables
+processDE(res.K72vsL40, "K72vsL40") #these comparisons are not in the supp tables
 ```
 
 

@@ -396,7 +396,7 @@ getTable <- function(genelist = df) {
 ```
 
 ```{r corplotFun, warnings=TRUE, message=FALSE}  
-  corPlot <- function(get_table = table, ChartTitle = "Title") {
+corPlot <- function(get_table = table, ChartTitle = "Title") {
   norm.filtered.subset.long <- get_table
   norm.filtered.subset.table <- dcast(norm.filtered.subset.long, external_gene_name ~ condition, value.var="norm.expression")
   temp <- norm.filtered.subset.table[,-1]
@@ -430,7 +430,7 @@ getTable <- function(genelist = df) {
 
 
 ```{r normFun, warnings=TRUE, message=FALSE}
-  normTestEach <- function(get_table = table, ChartTitle = "Title") {
+normTestEach <- function(get_table = table, ChartTitle = "Title") {
   norm.filtered.subset.long <- get_table
   ggplot(norm.filtered.subset.long, aes(x = norm.expression)) + 
     stat_density(color="darkblue", fill="lightblue") + 
@@ -452,7 +452,7 @@ getTable <- function(genelist = df) {
 ```
 
 ```{r normAllFun, warnings=TRUE, message=FALSE}
-  normTestAll <- function(get_table = table, ChartTitle = "Title") {
+normTestAll <- function(get_table = table, ChartTitle = "Title") {
   norm.filtered.subset.long <- get_table 
   ggplot(norm.filtered.subset.long, aes(x = norm.expression)) + 
     stat_density(color="purple", fill="dodgerblue") +
@@ -537,9 +537,9 @@ Amnion markers genes using Roost dataset (generated using `TissueEnrich`)
 amnion.roost.names <- addGeneIds(amnion.roost)
 ```
 
-Amnion markers genes using Roost dataset (from Io _et al_.,)
+Amnion markers genes using Roost dataset (from Io _et al_.,) #need reviewing "Io _et al_.,"?
 ```{r markers2, warnings=TRUE, message=FALSE}
-file1 <- "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-Fig6b.txt"
+file1 <- "assets/genes-Fig6b.txt"
 fig6b <- read.csv(file1, sep="\t", header = TRUE, stringsAsFactors = FALSE)
 fig6b <- merge(
   fig6b,
@@ -553,7 +553,7 @@ fig6b <- merge(
 
 Money amnion markers
 ```{r markers3, warnings=TRUE, message=FALSE}
-file2 <- "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-monkey.txt"
+file2 <- "assets/genes-monkey.txt"
 monkey <- read.csv(file2, sep="\t", header = TRUE, stringsAsFactors = FALSE)
 monkey <- merge(
   monkey,
@@ -581,7 +581,7 @@ amnion.monkey2 <- addSampleInfo(amnion.monkey1)
 ```
 
 
-## Visulaization (new Amnion marker genes)
+## Visualization (new Amnion marker genes)
 
 
 ```{r hm1a, fig.cap="Fig 4.1: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
@@ -617,7 +617,7 @@ vlnPlot(amnion.roost.new2)
 ```
   
 
-## Visulaization (old Amnion marker genes)
+## Visualization (old Amnion marker genes)
 
 
 ```{r hm1b, fig.cap="Fig 4.1: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
@@ -655,7 +655,7 @@ vlnPlot(amnion.roost.old2)
 
 
 
-## Visulaization (monkey amnion genes)
+## Visualization (monkey amnion genes)
 
 
 ```{r hm1c, fig.cap="Fig 4.1: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
