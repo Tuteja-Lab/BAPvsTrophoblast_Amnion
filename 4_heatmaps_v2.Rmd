@@ -1,0 +1,873 @@
+---
+title: "Section 4: Amnion Markers"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+  - name: Ha Vu
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+## Prerequisites
+
+R packages required for this section are loaded.
+
+```{r, warnings=TRUE, message=FALSE}
+setwd("~/github/BAPvsTrophoblast_Amnion")
+library(sva)
+library(tidyverse)
+library(DESeq2)
+library(vsn)
+library(pheatmap)
+library(ggrepel)
+library(RColorBrewer)
+library(reshape2)
+library(scales)
+require(biomaRt)
+library(EnhancedVolcano)
+library(TissueEnrich)
+library(corrplot)
+library(rstatix)
+library(ggpubr)
+library(car)
+library(FSA)
+library(PupillometryR)
+load("assets/myCorrplot.Rdata")
+```
+
+## Finding Amnion markers using `TissueEnrich`
+
+```{r markers, warnings=TRUE, message=FALSE}
+# Roost and Suzuki data used as different amnion tissues
+cts.full <-
+  as.matrix(read.csv(
+    "assets/counts-batch-corrected-v6_tpm.txt",
+    sep = "\t",
+    row.names = "gene"
+  ))
+md.full <-
+  read.csv(
+    "assets/coldata-batch-corrected-v6.txt",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+mycts.t <- as.data.frame(t(cts.full))
+metadata <- md.full[2]
+merged.table <-
+  merge(metadata, mycts.t, by = "row.names", all.x = TRUE)
+merged.table <-
+  merged.table %>% remove_rownames %>% column_to_rownames(var = "Row.names")
+mycts.mean <- aggregate(. ~ group, merged.table, mean)
+ordered <-
+  as.data.frame(t(
+    mycts.mean %>% remove_rownames %>% column_to_rownames(var = "group")
+  ))
+se <-
+  SummarizedExperiment(
+    assays = SimpleList(as.matrix(ordered)),
+    rowData = row.names(ordered),
+    colData = colnames(ordered)
+  )
+
+
+# results for TE enrichment, max tissues =2; fc threshold = 10; and expression threshold 1
+output <- teGeneRetrieval(
+  se,
+  foldChangeThreshold = 10,
+  maxNumberOfTissues = 2,
+  expressedGeneThreshold = 1
+)
+
+# save
+te.results.merged <- as.data.frame(assay(output))
+write.table(
+  te.results.merged,
+  file = "enrichment-results_fc10_merged.tsv",
+  sep = "\t",
+  row.names = FALSE,
+  quote = FALSE
+)
+
+full.ec.results <- as.data.frame(assay(output))
+amnion.roost <- subset(full.ec.results, Tissue=='amnion' & Group=='Tissue-Enriched')
+```
+
+
+## Processing data for plotting heatmaps
+
+This section uses the count data (selected datasets) generated in Section 1 for generating heatmaps. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation is performed and normalized using `DESeq2`, and heatmaps are generated for selected genes.
+
+
+### Dataset import
+The `counts` data and its associated metadata (`coldata`) are imported for analyses.
+
+```{r dataset, warnings=TRUE, message=FALSE}
+counts = 'assets/counts-pca-v2.txt'
+groupFile = 'assets/batch-pca-v2.txt'
+coldata <-
+  read.csv(
+    groupFile,
+    row.names = 1,
+    sep = "\t",
+    stringsAsFactors = TRUE
+  )
+cts <-
+  as.matrix(read.csv(counts, sep = "\t", row.names = "gene.ids"))
+```
+Inspect the `coldata`.
+
+```{r coldata}
+DT::datatable(coldata)
+```
+
+Reorder columns of `cts` according to `coldata` rows. Check if the samples in both files match.
+
+```{r order, warnings=TRUE, message=FALSE}
+colnames(cts)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+### Batch correction
+
+Using `ComBat_seq` (SVA package) to run batch correction - using bioproject IDs as variable (dataset origin).
+
+```{r batchcorrect, warnings=TRUE, message=TRUE}
+cov1 <- as.factor(coldata$authors)
+adjusted_counts <- ComBat_seq(cts, batch = cov1, group = NULL)
+all(rownames(coldata) %in% colnames(cts))
+cts <- cts[, rownames(coldata)]
+```
+
+### run DESeq2
+
+The batch corrected read counts are then used for running DESeq2 analyses.
+
+```{r deseq2, warnings=TRUE, message=FALSE}
+dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
+                              colData = coldata,
+                              design = ~ group)
+vsd <- vst(dds, blind = FALSE)
+keep <- rowSums(counts(dds)) >= 10
+dds <- dds[keep,]
+dds <- DESeq(dds)
+```
+
+### Normalize counts.
+
+```{r normtable, warnings=TRUE, message=FALSE}
+normalized_counts <- counts(dds, normalized = T) %>%
+  data.frame() %>%
+  rownames_to_column(var = "gene")
+normalized_counts <- normalized_counts %>%
+  as_tibble()
+```
+
+## Ensembl id table
+
+The gene lists have Ensembl gene-ID-version. We need them as gene-IDs. We also need other metadata later for these lists.
+From Ensembl we will download metadata and attach to these lists.
+
+```{r annotations, warnings=TRUE, message=FALSE}
+ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+listDatasets(ensembl) %>%
+  filter(str_detect(description, "Human"))
+ensembl = useDataset("hsapiens_gene_ensembl", mart = ensembl)
+listFilters(ensembl) %>%
+  filter(str_detect(name, "ensembl"))
+filterType <- "ensembl_gene_id_version"
+filterValues <- rownames(cts)
+attributeNames <- c('ensembl_gene_id_version',
+                    'ensembl_gene_id',
+                    'external_gene_name')
+annot <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+isDup <- duplicated(annot$ensembl_gene_id)
+dup <- annot$ensembl_gene_id[isDup]
+annot <- annot[!annot$ensembl_gene_id %in% dup, ]
+```
+
+
+## Required Functions
+
+convert geneids function
+```{r idsFun, warnings=TRUE, message=FALSE}
+addGeneIds <- function(df) {
+  merge(
+    df,
+    annot,
+    by.x = "Gene",
+    by.y = "ensembl_gene_id",
+    all.x = TRUE,
+    all.y = FALSE
+  ) %>% drop_na() %>% filter(external_gene_name != "")
+}
+```
+correlation function
+```{r corFun, warnings=TRUE, message=FALSE}
+cor.mtest <- function(mat, ...) {
+  mat <- as.matrix(mat)
+  n <- ncol(mat)
+  p.mat<- matrix(NA, n, n)
+  diag(p.mat) <- 0
+  for (i in 1:(n - 1)) {
+    for (j in (i + 1):n) {
+      tmp <- cor.test(mat[, i], mat[, j], ...)
+      p.mat[i, j] <- p.mat[j, i] <- tmp$p.value
+    }
+  }
+  colnames(p.mat) <- rownames(p.mat) <- colnames(mat)
+  p.mat
+}
+```
+Data summary for the violin plots
+```{r StatFun, warnings=TRUE, message=FALSE}
+data_summary <- function(x) {
+  m <- mean(x)
+  ymin <- m-sd(x)
+  ymax <- m+sd(x)
+  return(c(y=m,ymin=ymin,ymax=ymax))
+}
+```
+Theme for the plots
+```{r themeFun, warnings=TRUE, message=FALSE}
+# SOURCE: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
+theme_niwot <- function() {
+  theme_bw() +
+    theme(
+      axis.text = element_text(size = 16),
+      axis.title = element_text(size = 18),
+      axis.line.x = element_line(color = "black"),
+      axis.line.y = element_line(color = "black"),
+      panel.border = element_blank(),
+      panel.grid.major.x = element_blank(),
+      panel.grid.minor.x = element_blank(),
+      panel.grid.minor.y = element_blank(),
+      panel.grid.major.y = element_blank(),
+      plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
+      plot.title = element_text(
+        size = 18,
+        vjust = 1,
+        hjust = 0
+      ),
+      legend.text = element_text(size = 12),
+      legend.title = element_blank(),
+      legend.position = c(0.95, 0.15),
+      legend.key = element_blank(),
+      legend.background = element_rect(
+        color = "black",
+        fill = "transparent",
+        size = 2,
+        linetype = "blank"
+      )
+    )
+}
+```
+```{r filter1, warnings=TRUE, message=FALSE}
+name1 <-
+  c(
+    "amnion_9w.1",
+    "amnion_9w.2",
+    "amnion_16w.2",
+    "amnion_18w.1",
+    "amnion_18w.2",
+    "amnion_22w.1",
+    "amnion_22w.2",
+    "CT_7wk.1",
+    "CT_7wk.2",
+    "CT_9wk.1",
+    "CT_11wk.1",
+    "pBAP_D3.1",
+    "pBAP_D3.2",
+    "hESC_H9_BMP4_72h.1",
+    "hESC_H9_BMP4_72h.2",
+    "H1_gt70_D8_BAP.1",
+    "H1_gt70_D8_BAP.2",
+    "H1_gt70_D8_BAP.3"
+  )
+filter1 <- as.data.frame(name1)
+name2 <-
+  c(
+    "BT_EVT_Okae.1",
+    "BT_SCT_Okae.1",
+    "BT_TSC_Okae.1",
+    "BT_EVT_Okae.2",
+    "BT_SCT_Okae.2",
+    "BT_TSC_Okae.2",
+    "CT_EVT_Okae.1",
+    "CT_SCT_Okae.1",
+    "CT_TSC_Okae.1",
+    "CT_EVT_Okae.2",
+    "CT_SCT_Okae.2",
+    "CT_TSC_Okae.2",
+    "CT_EVT_Okae.3",
+    "CT_SCT_Okae.3",
+    "CT_TSC_Okae.3",
+    "amnion_18w.1",
+    "amnion_9w.1",
+    "amnion_18w.2",
+    "amnion_16w.2",
+    "amnion_22w.1",
+    "amnion_9w.2",
+    "amnion_22w.2"
+  )
+filter2 <- as.data.frame(name2)
+```
+
+```{r tableFun1, warnings=TRUE, message=FALSE}
+getTable.main <- function(genelist = df,
+                          data.to.plot = name1) {
+  norm.filtered.table <-
+    normalized_counts %>% filter(gene %in% genelist$ensembl_gene_id_version)
+  norm.filtered.long <- melt(norm.filtered.table, id.vars = "gene")
+  filter1 <- as.data.frame(data.to.plot)
+  de_names <- filter1$data.to.plot
+  norm.filtered.subset.long <-
+    norm.filtered.long %>% filter (variable %in% de_names)
+  colnames(norm.filtered.subset.long) <-
+    c("gene", "condition", "norm.expression")
+  norm.filtered.subset.long <-
+    merge(
+      norm.filtered.subset.long,
+      annot,
+      by.x = "gene",
+      by.y = "ensembl_gene_id_version",
+      all.x = TRUE,
+      all.y = FALSE
+    ) %>% drop_na() %>% filter(external_gene_name != "")
+  norm.filtered.subset.long
+}
+```
+
+
+```{r htmpFun, warnings=TRUE, message=FALSE}
+runheatmap <-
+  function(get_table = table,
+           filename = "test_name",
+           num = 20,
+           data.to.plot = name1,
+           ChartTitle = "Title") {
+    norm.filtered.subset.long <- get_table
+    norm.filtered.subset.table <-
+      dcast(norm.filtered.subset.long,
+            external_gene_name ~ condition,
+            value.var = "norm.expression")
+    write_delim(
+      norm.filtered.subset.table,
+      file = paste0(filename, "_expValues.tsv"),
+      delim = "\t"
+    )
+    norm.filtered.subset.table <-
+      norm.filtered.subset.table %>% column_to_rownames("external_gene_name")
+    annotation <- data.frame(Condition = colnames(norm.filtered.subset.table))
+    heat_colors <- brewer.pal(9, "YlOrRd")
+    hmap.data <-
+      as.matrix(norm.filtered.subset.table[, data.to.plot])
+    g <- pheatmap(
+      hmap.data,
+      color = heat_colors,
+      main = ChartTitle,
+      cluster_rows = F,
+      cluster_cols  = F,
+      show_rownames = T,
+      border_color = NA,
+      fontsize = 14,
+      scale = "row",
+      fontsize_row = 10
+    )
+    g
+  }
+```
+
+
+
+
+```{r corplotFun, warnings=TRUE, message=FALSE}
+corPlot <- function(get_table = table,
+                    ChartTitle = "Title") {
+  norm.filtered.subset.long <- get_table
+  norm.filtered.subset.table <-
+    dcast(norm.filtered.subset.long,
+          external_gene_name ~ condition,
+          value.var = "norm.expression")
+  temp <- norm.filtered.subset.table[, -1]
+  row.names(temp) <- norm.filtered.subset.table[, 1]
+  norm.filtered.subset.table <- temp
+  pcor <-
+    cor(as.matrix(norm.filtered.subset.table), method = "spearman")
+  p.mat <- cor.mtest(as.matrix(norm.filtered.subset.table))
+  col <-
+    colorRampPalette(c("#BB4444", "#EE9988", "#FFFFFF", "#77AADD", "#4477AA"))
+  my.corrplot(
+    pcor,
+    method = "color",
+    col = col(200),
+    type = "upper",
+    order = "hclust",
+    addCoef.col = "darkorchid",
+    pch.cex = 1.5,
+    p.mat = p.mat,
+    insig = 'label_sig',
+    sig.level = c(0.001, 0.01, 0.05),
+    tl.col = "black",
+    tl.srt = 45,
+    number.cex = 0.8,
+    tl.cex = 1,
+    pch.col = "tomato",
+    diag = FALSE,
+    font.main = 4,
+    mar = c(0, 0, 1, 0)
+  )
+}
+```
+
+
+```{r normFun, warnings=TRUE, message=FALSE}
+normTestEach <- function(get_table = table,
+                         ChartTitle = "Title") {
+  norm.filtered.subset.long <- get_table
+  ggplot(norm.filtered.subset.long, aes(x = norm.expression)) +
+    stat_density(color = "darkblue", fill = "lightblue") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(
+        angle = 45,
+        vjust = 1,
+        hjust = 1,
+        size = 12
+      ),
+      axis.text.y = element_text(size = 12),
+      plot.margin = margin(10, 10, 10, 100),
+      legend.position = "none",
+      plot.title = element_text(
+        color = "black",
+        size = 18,
+        face = "bold.italic"
+      ),
+      axis.line.x = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.ticks.x = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.title.x = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      ),
+      axis.line.y = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.ticks.y = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.title.y = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      )
+    )  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks()) +
+    facet_wrap( ~ condition, ncol = 5) +
+    scale_x_log10()
+}
+```
+
+```{r normAllFun, warnings=TRUE, message=FALSE}
+normTestAll <- function(get_table = table,
+                        ChartTitle = "Title") {
+  norm.filtered.subset.long <- get_table
+  ggplot(norm.filtered.subset.long, aes(x = norm.expression)) +
+    stat_density(color = "purple", fill = "dodgerblue") +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(
+        angle = 45,
+        vjust = 1,
+        hjust = 1,
+        size = 12
+      ),
+      axis.text.y = element_text(size = 12),
+      plot.margin = margin(10, 10, 10, 100),
+      legend.position = "none",
+      plot.title = element_text(
+        color = "black",
+        size = 18,
+        face = "bold.italic"
+      ),
+      axis.line.x = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.line.y = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.ticks.x = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.ticks.y = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.title.x = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      ),
+      axis.title.y = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      )
+    )  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks()) +
+    scale_x_log10()
+}
+```
+```{r addSampleFun, warnings=TRUE, message=FALSE}
+addSampleInfo <- function(get_table = table) {
+  norm.filtered.subset.long <- get_table
+  metadata <- coldata %>%
+    rownames_to_column(var = "condition") %>%
+    select(condition, group)
+  metadata$group <- sub("^(amnion_).*w", "Amnion", metadata$group)
+  metadata$group <-
+    sub("^(CT_7|CT_9|CT_11)wk", "CT", metadata$group)
+  norm.filtered.subset.long <- merge(
+    norm.filtered.subset.long,
+    metadata,
+    by.x = "condition",
+    by.y = "condition",
+    all.x = TRUE,
+    all.y = FALSE
+  )
+  norm.filtered.subset.long
+}
+```
+
+```{r vlnPlotFun, warnings=TRUE, message=FALSE}
+vlnPlot <- function(info_table = Infotable) {
+  norm.filtered.subset.long <- info_table
+  ggplot(data = norm.filtered.subset.long,
+         aes(x = group, y = norm.expression, fill = group)) +
+    geom_flat_violin(position = position_nudge(x = 0.2, y = 0),
+                     alpha = 0.8,
+                     trim = FALSE) +
+    geom_point(
+      aes(y = norm.expression, color = group),
+      position = position_jitter(width = 0.15),
+      size = 1,
+      alpha = 0.5
+    ) +
+    geom_boxplot(width = 0.2,
+                 outlier.shape = NA,
+                 alpha = 0.8) + stat_summary(
+                   fun = mean,
+                   geom = "point",
+                   shape = 23,
+                   size = 2
+                 ) +
+    labs(y = "\nNormalized Expression", x = NULL) +
+    guides(fill = "none", color = "none") +
+    scale_y_log10()  +
+    theme_niwot() + theme(axis.text.x = element_text(
+      angle = 45,
+      vjust = 1,
+      hjust = 1
+    ))
+}
+```
+
+## Prepare gene lists
+
+Amnion markers genes using Roost dataset (generated using `TissueEnrich`)
+
+```{r markers1, warnings=TRUE, message=FALSE}
+amnion.roost.names <- addGeneIds(amnion.roost)
+```
+
+Amnion markers genes using Roost dataset (from Io _et al_.,)
+```{r markers2, warnings=TRUE, message=FALSE}
+file1 <-
+  "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-Fig6b.txt"
+fig6b <-
+  read.csv(file1,
+           sep = "\t",
+           header = TRUE,
+           stringsAsFactors = FALSE)
+fig6b <- merge(
+  fig6b,
+  annot,
+  by.x = "genes",
+  by.y = "external_gene_name",
+  all.x = TRUE,
+  all.y = FALSE
+) %>% drop_na() 
+```
+
+Money amnion markers
+```{r markers3, warnings=TRUE, message=FALSE}
+file2 <-
+  "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-monkey.txt"
+monkey <-
+  read.csv(file2,
+           sep = "\t",
+           header = TRUE,
+           stringsAsFactors = FALSE)
+monkey <- merge(
+  monkey,
+  annot,
+  by.x = "genes",
+  by.y = "external_gene_name",
+  all.x = TRUE,
+  all.y = FALSE
+) %>% drop_na() 
+
+```
+
+## Format Conversion
+
+```{r tableout1, warnings=TRUE, message=FALSE}
+amnion.roost.new.main <- getTable.main(amnion.roost.names, name1)
+amnion.roost.old.main <- getTable.main(fig6b, name1)
+amnion.monkey.main    <- getTable.main(monkey, name1)
+amnion.roost.new.supp <- getTable.main(amnion.roost.names, name2)
+amnion.roost.old.supp <- getTable.main(fig6b, name2)
+amnion.monkey.supp    <- getTable.main(monkey, name2)
+```
+
+```{r tableout2, warnings=TRUE, message=FALSE}
+amnion.roost.new.main.info <- addSampleInfo(amnion.roost.new.main)
+amnion.roost.old.main.info <- addSampleInfo(amnion.roost.old.main)
+amnion.monkey.main.info    <- addSampleInfo(amnion.monkey.main)
+amnion.roost.new.supp.info <- addSampleInfo(amnion.roost.new.supp)
+amnion.roost.old.supp.info <- addSampleInfo(amnion.roost.old.supp)
+amnion.monkey.supp.info    <- addSampleInfo(amnion.monkey.supp)
+```
+
+
+## Visulaization (new Amnion marker genes)
+
+
+```{r hm1a, fig.cap="Fig 4.1A: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(
+  amnion.roost.new.main.info,
+  data.to.plot = name1,
+  num = 38,
+  ChartTitle = "New amnion markers - expression across samples"
+)
+```
+
+```{r cor1a, fig.cap="Fig 4.1B: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.roost.new.main.info)
+```
+```{r normeach1a, fig.cap="Fig 4.1C: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.roost.new.main.info)
+```
+```{r normall1a, fig.cap="Fig 4.1D: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.roost.new.main.info)
+```
+```{r dt1a, warnings=TRUE, message=FALSE}
+shapiro.each <-
+  amnion.roost.new.main.info %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each,)
+```
+```{r dt2a, warnings=TRUE, message=TRUE}
+shapiro.test(amnion.roost.new.main.info$norm.expression[0:5000])
+```
+```{r dt3a, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ group, data = amnion.roost.new.main.info)
+```
+```{r dt4a, warnings=TRUE, message=FALSE}
+dunnTest <-
+  dunnTest(norm.expression ~ group, data = amnion.roost.new.main.info, method =
+             "bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1a, fig.cap="Fig 4.1E: Violin plot for the new amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.roost.new.main.info)
+```
+  
+
+## Visulaization (old Amnion marker genes)
+
+
+```{r hm1b, fig.cap="Fig 4.2A: Heatmap for the Io amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(
+  amnion.roost.old.main.info,
+  data.to.plot = name1,
+  num = 20,
+  ChartTitle = "Io amnion markers - expression across samples"
+)
+```
+
+```{r cor1b, fig.cap="Fig 4.2B: Corelation plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.roost.old.main.info)
+```
+```{r normeach1b, fig.cap="Fig 4.2C: distribution plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.roost.old.main.info)
+```
+```{r normall1b, fig.cap="Fig 4.2D: distribution plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.roost.old.main.info)
+```
+```{r dt1b, warnings=TRUE, message=FALSE}
+shapiro.each <-
+  amnion.roost.old.main.info %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each,)
+```
+```{r dt2b, warnings=TRUE, message=TRUE}
+shapiro.test(amnion.roost.old.main.info$norm.expression[0:5000])
+```
+```{r dt3b, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ group, data = amnion.roost.old.main.info)
+```
+```{r dt4b, warnings=TRUE, message=FALSE}
+dunnTest <-
+  dunnTest(norm.expression ~ group, data = amnion.roost.old.main.info, method =
+             "bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1b, fig.cap="Fig 4.2E: Violin plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.roost.old.main.info)
+```
+  
+
+
+
+
+## Visulaization (new Amnion marker genes) for amnion and organoid datasets
+
+
+```{r hm1c, fig.cap="Fig 4.3A: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(
+  amnion.roost.new.supp.info,
+  data.to.plot = name2,
+  num = 20,
+  ChartTitle = "Io amnion markers - expression across samples"
+)
+```
+
+```{r cor1c, fig.cap="Fig 4.3B: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.roost.new.supp.info)
+```
+```{r normeach1c, fig.cap="Fig 4.3C: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.roost.new.supp.info)
+```
+```{r normall1c, fig.cap="Fig 4.3D: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.roost.new.supp.info)
+```
+```{r dt1c, warnings=TRUE, message=FALSE}
+shapiro.each <-
+  amnion.roost.new.supp.info %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each,)
+```
+```{r dt2c, warnings=TRUE, message=TRUE}
+shapiro.test(amnion.roost.new.supp.info$norm.expression[0:5000])
+```
+```{r dt3c, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ group, data = amnion.roost.new.supp.info)
+```
+```{r dt4c, warnings=TRUE, message=FALSE}
+dunnTest <-
+  dunnTest(norm.expression ~ group, data = amnion.roost.new.supp.info, method =
+             "bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1c, fig.cap="Fig 4.3E: Violin plot for the new amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.roost.new.supp.info)
+```
+
+
+
+## Visulaization (old Amnion marker genes) for amnion and organoid datasets
+
+
+```{r hm1d, fig.cap="Fig 4.4A: Heatmap for the Io amnion marker genes", fig.width=8, fig.height=20}
+runheatmap(
+  amnion.roost.old.supp.info,
+  data.to.plot = name2,
+  num = 20,
+  ChartTitle = "Io amnion markers - expression across samples"
+)
+```
+
+```{r cor1d, fig.cap="Fig 4.4B: Corelation plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+corPlot(amnion.roost.old.supp.info)
+```
+```{r normeach1d, fig.cap="Fig 4.4C: distribution plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+normTestEach(amnion.roost.old.supp.info)
+```
+```{r normall1d, fig.cap="Fig 4.4D: distribution plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+normTestAll(amnion.roost.old.supp.info)
+```
+```{r dt1d, warnings=TRUE, message=FALSE}
+shapiro.each <-
+  amnion.roost.old.supp.info %>% dplyr::group_by(condition) %>% shapiro_test(norm.expression)
+DT::datatable(shapiro.each,)
+```
+```{r dt2d, warnings=TRUE, message=TRUE}
+shapiro.test(amnion.roost.old.supp.info$norm.expression[0:5000])
+```
+```{r dt3d, warnings=TRUE, message=FALSE}
+kruskal.test(norm.expression ~ group, data = amnion.roost.old.supp.info)
+```
+```{r dt4d, warnings=TRUE, message=FALSE}
+dunnTest <-
+  dunnTest(norm.expression ~ group, data = amnion.roost.old.supp.info, method =
+             "bh")
+g <- as.data.frame(dunnTest$res)
+DT::datatable(g)
+```
+```{r vln1d, fig.cap="Fig 4.4E: Violin plot for the Io amnion marker genes", fig.width=8, fig.height=8}
+vlnPlot(amnion.roost.old.supp.info)
+```
+
+## Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```

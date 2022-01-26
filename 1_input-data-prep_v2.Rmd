@@ -1,0 +1,187 @@
+---
+title: "Section 1: Pre-processing"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+  - name: Ha Vu
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+
+## Downloading datasets
+
+### SRA datasets
+
+```{bash, eval=FALSE, engine="sh"}
+while read a b; do
+python3 enaBrowserTools-1.6/python3/enaDataGet.py \
+  -f fastq \
+  -as ~/.aspera_setting.ini \
+  $a;
+done < assets/needed-sra.txt 
+```
+### Genome/annotation
+
+```{bash eval = FALSE} 
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/gencode.v37.primary_assembly.annotation.gtf.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/GRCh38.primary_assembly.genome.fa.gz
+gunzip gencode.v37.primary_assembly.annotation.gtf.gz
+gunzip GRCh38.primary_assembly.genome.fa.gz
+```
+
+
+## Mapping
+
+Script to index (`star-index.sh`):
+
+```{bash, eval=FALSE, engine="sh"} 
+#!/bin/bash
+module load star
+GTF=gencode.v37.primary_assembly.annotation.gtf
+FASTA=GRCh38.primary_assembly.genome.fa
+STAR --runThreadN 36 \
+     --runMode genomeGenerate \
+     --genomeDir GRCh38 \
+     --sjdbOverhang 100 \
+     --sjdbGTFfile ${GTF} \
+     --genomeFastaFiles ${FASTA}
+```
+
+ Script to Map/Count (`star-map.sh`):
+
+```{bash, eval=FALSE, engine="sh"}
+ #!/bin/bash
+module load star
+index=/work/LAS/geetu-lab/arnstrm/amnion-rnaseq/lo-etal/GRCh38
+read1=$1
+cpus=36
+out=$(basename ${read1} | sed 's/.fastq.gz//g')
+STAR \
+--runThreadN 36 \
+--genomeDir $index \
+--outSAMtype BAM SortedByCoordinate \
+--quantMode GeneCounts \
+--outFilterScoreMinOverLread 0.3 \
+--outFilterMatchNminOverLread 0.3 \
+--outFileNamePrefix ${out}_ \
+--readFilesCommand zcat \
+--readFilesIn ${read1}
+```
+
+Prepare jobs:
+
+```{bash, eval=FALSE, engine="sh"}
+find $(pwd) -name ".fastq.gz" > input.fofn
+```
+
+Slurm job script (`star.slurm`):
+
+```{bash, eval=FALSE, engine="sh"}
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --exclusive
+#SBATCH --time=8:00:00
+#SBATCH --job-name=star
+#SBATCH --output=nova-%x.%j.out
+#SBATCH --error=nova-%x.%j.err
+#SBATCH --mail-user=arnstrm@gmail.com
+#SBATCH --mail-type=begin
+#SBATCH --mail-type=end
+IFS=$'\n' read -d '' -r -a LINES < input.fofn
+LINE=${LINES[$SLURM_ARRAY_TASK_ID]}
+echo -e "$(date +"%D  %r")\tthis command is ${LINE}"
+./star-map.sh ${LINE}
+```
+
+Submit jobs:
+
+```{bash, eval=FALSE, engine="sh"}
+sbatch --array=0-72 star.slurm
+```
+
+## Counts
+
+```{bash, eval=FALSE, engine="sh"} 
+for f in *_ReadsPerGene.out.tab; do
+g=$(echo $f |sed 's/_ReadsPerGene.out.tab//g');
+echo -e "AA_geneids\t$g" > ${g}_counts.txt;
+tail -n +5 $f | cut -f1,4 >> ${g}_counts.txt;
+done
+join_files.sh *_counts.txt | grep -v "_counts.txt" | sort -k1,1 > counts-full.txt
+# get geneids (protein coding only) from GTF file
+gtf=gencode.v37.basic.annotation.gtf
+awk '$3=="gene"' $gtf |\
+  cut -f 9 |\
+  awk '$4 ~ /protein_coding/ {print $2}'|\
+  sed -e 's/";//g' -e sed 's/"//g' > gene.ids
+#filter coutns to retain only counts for geneids
+grep -Fw -f gene.ids counts-full.txt > coding-counts.txt
+# organize folders
+while read a b; do
+  mkdir -p ${b};
+  mv ${a}_* ${b}/;
+done<needed-sra.txt
+# rename folders:
+mv E-MTAB-10429 E-MTAB-10429_Sheridan
+mv PRJNA276463 PRJNA276463_Roost
+mv PRJNA294733 PRJNA294733_Yabe
+mv PRJNA316992 PRJNA316992_Suzuki
+mv PRJNA352339 PRJNA352339_Shao
+mv PRJNA605646 PRJNA605646_Io
+mv PRJNA414247 PRJNA414247_Krendl
+# run mulitqc
+for dir in E-MTAB-10429_Sheridan PRJ*; do
+  cd $dir;
+  multiqc .;
+  cp multiqc_report.html ../${f}_multiqc.html;
+  cd ..
+done
+```
+### MultiQC reports:
+
+1. [Sheridan et .al.,](E-MTAB-10429_Sheridan_multiqc.html)
+2. [Roost et .al.,](PRJNA276463_Roost_multiqc.html)
+3. [Yabe et .al.,](PRJNA294733_Yabe_multiqc.html)
+4. [Suzuki et .al.,](PRJNA316992_Suzuki_multiqc.html)
+5. [Shao et .al.,](PRJNA352339_Shao_multiqc.html)
+6. [Io et .al.,](PRJNA605646_Io_multiqc.html)
+7. [Krendl et .al.,](PRJNA414247_Krendl_multiqc.html)
+
+
+## Subset counts
+
+Using the `srr-to-labels.txt` file, the SRR numbers in the master counts file were converted to informative names. From this master counts table, subset datasets were derived using the cut command.
+
+```{bash, eval=FALSE, engine="sh"} 
+cp coding-counts.txt coding-counts-renamed.txt
+while read a b; do
+  sed -i 's/'$a'/'$b'/g' coding-counts-renamed.txt
+done<srr-to-labels.txt
+```
+
+
+
+

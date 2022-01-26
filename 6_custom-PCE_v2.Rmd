@@ -1,0 +1,393 @@
+---
+title: "Section 6: Custom PCE dataset generation"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+  - name: Ha Vu
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+
+## Generating custom PCE datasets
+
+list the datasets being used in the section.
+
+## Prerequisites
+
+R packages required for this section are loaded.
+
+```{r prerequisite, warnings=TRUE, message=FALSE}
+setwd("~/github/BAPvsTrophoblast_Amnion")
+library(tidyverse)
+library(TissueEnrich)
+library(R.utils)
+```
+
+## Download counts file
+
+```{r download, warnings=TRUE, message=FALSE}
+zplink <-
+  "https://iastate.box.com/shared/static/pb42m8gz4sgmlvzlxxcdk22ec1ke6z8a.gz"
+download.file(zplink, "ZhouPetro_rawCounts_tpm.txt.gz")
+gunzip("ZhouPetro_rawCounts_tpm.txt.gz")
+xilink <-
+  "https://iastate.box.com/shared/static/5jhfv20ljybj4isvwidzl4rd06ncvnfl.gz"
+download.file(xilink, "combined_555_rawCounts_tpm.txt.gz")
+gunzip("combined_555_rawCounts_tpm.txt.gz")
+```
+
+
+## Castel (Zhou + Petropoulos)
+
+[Castel _et al.,_](https://pubmed.ncbi.nlm.nih.gov/33238118/) used the data from [Petropoulos _et al.,_](https://pubmed.ncbi.nlm.nih.gov/27062923/) and [Zhou _et al.,_](https://pubmed.ncbi.nlm.nih.gov/31435013/) in their analyses. We used the same data downloaded directly from their [BitBucket](https://gitlab.univ-nantes.fr/E137833T/Castel_et_al_2020) for generating custom dataset for performing enrichment analyses.  
+
+
+```{r castel, warnings=TRUE, message=FALSE}
+cts.castel <-
+  as.matrix(read.csv(
+    "ZhouPetro_rawCounts_tpm.txt",
+    sep = "\t",
+    row.names = "Geneid"
+  ))
+md.castel <-
+  read.csv(
+    "assets/metadata_castel.tsv",
+    sep = "\t",
+    header = FALSE,
+    row.names = 1
+  )
+mycts.t <- as.data.frame(t(cts.castel))
+metadata <- md.castel
+colnames(metadata) <- c("days", "celltypes")
+metadata <- metadata[2]
+merged.table <-
+  merge(metadata, mycts.t, by = "row.names", all.x = TRUE)
+merged.table <-
+  merged.table %>% remove_rownames %>% column_to_rownames(var = "Row.names")
+mycts.mean <- aggregate(. ~ celltypes, merged.table, mean)
+ordered <-
+  as.data.frame(t(
+    mycts.mean %>% remove_rownames %>% column_to_rownames(var = "celltypes")
+  ))
+se <-
+  SummarizedExperiment(
+    assays = SimpleList(as.matrix(ordered)),
+    rowData = row.names(ordered),
+    colData = colnames(ordered)
+  )
+te.dataset.castel <- teGeneRetrieval(se)
+saveRDS(te.dataset.castel, file = "te.dataset.castel.rds")
+results.summary <- as.data.frame(assay(te.dataset.castel))
+```
+
+```{r theme, warnings=TRUE, message=FALSE}
+# DISTRIBUTIONS ----
+# Setting a custom ggplot2 function
+# This function makes a pretty ggplot theme
+# This function takes no arguments 
+# meaning that you always have just niwot_theme() and not niwot_theme(something else here)
+# source: https://ourcodingclub.github.io/tutorials/dataviz-beautification/
+
+theme_niwot <- function(){
+  theme_bw() +
+    theme(axis.text.y = element_text(size = 12),
+          axis.text.x = element_text(angle = 45, vjust = 1, hjust=1, size = 12), 
+          axis.title = element_text(size = 14),
+          axis.line.x = element_line(color="black"), 
+          axis.line.y = element_line(color="black"),
+          panel.border = element_blank(),
+          panel.grid.major.x = element_blank(),                                          
+          panel.grid.minor.x = element_blank(),
+          panel.grid.minor.y = element_blank(),
+          panel.grid.major.y = element_blank(),  
+          plot.margin = unit(c(1, 1, 1, 1), units = , "cm"),
+          plot.title = element_text(size = 18, vjust = 1, hjust = 0),
+          legend.text = element_text(size = 12),          
+          legend.title = element_blank(),                              
+          legend.position = c(0.95, 0.15), 
+          legend.key = element_blank(),
+          legend.background = element_rect(color = "black", 
+                                           fill = "transparent", 
+                                           size = 2, linetype = "blank"))
+}
+
+```
+```{r castel.bar1, fig.cap="Fig 6.1: Castel Dataset tissue enrichement distribution", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Tissue)) +
+    stat_count(alpha = 0.6, fill = "palegreen4") +
+  theme_niwot() + 
+  scale_y_log10() +
+  xlab("Cell Types") +
+  ylab("Number of Genes enriched")
+```
+
+
+```{r castel.bar2, fig.cap="Fig 6.2: Castel Dataset tissue enrichement results", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Group)) +
+    stat_count(alpha = 0.6, fill = "slateblue") +
+  theme_niwot() + 
+  xlab("Enrichment Type") +
+  ylab("Number of Genes enriched")
+```
+
+
+## Xiang
+
+[Xiang _et. al._](https://pubmed.ncbi.nlm.nih.gov/31830756/) dataset was generated, after downloading the SRA datasets from NCBI BioProject# [PRJNA562548](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA562548). 
+
+
+
+### Download SRA datasets
+
+```{bash, eval=FALSE, engine="sh"}
+while read a b; do
+python3 enaBrowserTools-1.6/python3/enaDataGet.py \
+  -f fastq \
+  -as ~/.aspera_setting.ini \
+  $a;
+done < assets/PRJNA562548.txt 
+```
+### Genome/annotation
+
+```{bash eval = FALSE} 
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/gencode.v37.primary_assembly.annotation.gtf.gz
+wget ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_37/GRCh38.primary_assembly.genome.fa.gz
+gunzip gencode.v37.primary_assembly.annotation.gtf.gz
+gunzip GRCh38.primary_assembly.genome.fa.gz
+```
+
+
+### Mapping
+
+Script to index (`star-index.sh`):
+
+```{bash, eval=FALSE, engine="sh"} 
+#!/bin/bash
+module load star
+GTF=gencode.v37.primary_assembly.annotation.gtf
+FASTA=GRCh38.primary_assembly.genome.fa
+STAR --runThreadN 36 \
+     --runMode genomeGenerate \
+     --genomeDir GRCh38 \
+     --sjdbOverhang 100 \
+     --sjdbGTFfile ${GTF} \
+     --genomeFastaFiles ${FASTA}
+```
+
+ Script to Map/Count (`star-map.sh`):
+
+```{bash, eval=FALSE, engine="sh"}
+ #!/bin/bash
+module load star
+index=/work/LAS/geetu-lab/arnstrm/amnion-rnaseq/lo-etal/GRCh38
+read1=$1
+cpus=36
+out=$(basename ${read1} | sed 's/.fastq.gz//g')
+STAR \
+--runThreadN 36 \
+--genomeDir $index \
+--outSAMtype BAM SortedByCoordinate \
+--quantMode GeneCounts \
+--outFilterScoreMinOverLread 0.3 \
+--outFilterMatchNminOverLread 0.3 \
+--outFileNamePrefix ${out}_ \
+--readFilesCommand zcat \
+--readFilesIn ${read1}
+```
+
+Prepare jobs:
+
+```{bash, eval=FALSE, engine="sh"}
+find $(pwd) -name ".fastq.gz" > input.fofn
+```
+
+Slurm job script (`star.slurm`):
+
+```{bash, eval=FALSE, engine="sh"}
+#!/bin/bash
+#SBATCH --nodes=1
+#SBATCH --exclusive
+#SBATCH --time=8:00:00
+#SBATCH --job-name=star
+#SBATCH --output=nova-%x.%j.out
+#SBATCH --error=nova-%x.%j.err
+#SBATCH --mail-user=arnstrm@gmail.com
+#SBATCH --mail-type=begin
+#SBATCH --mail-type=end
+IFS=$'\n' read -d '' -r -a LINES < input.fofn
+LINE=${LINES[$SLURM_ARRAY_TASK_ID]}
+echo -e "$(date +"%D  %r")\tthis command is ${LINE}"
+./star-map.sh ${LINE}
+```
+
+Submit jobs:
+
+```{bash, eval=FALSE, engine="sh"}
+sbatch --array=0-554 star.slurm
+```
+
+### Counts
+
+```{bash, eval=FALSE, engine="sh"} 
+for f in *_ReadsPerGene.out.tab; do
+g=$(echo $f |sed 's/_ReadsPerGene.out.tab//g');
+echo -e "AA_geneids\t$g" > ${g}_counts.txt;
+tail -n +5 $f | cut -f1,4 >> ${g}_counts.txt;
+done
+join_files.sh *_counts.txt | grep -v "_counts.txt" | sort -k1,1 > counts-555.txt
+# get geneids (protein coding only) from GTF file
+gtf=gencode.v37.basic.annotation.gtf
+awk '$3=="gene"' $gtf |\
+  cut -f 9 |\
+  awk '$4 ~ /protein_coding/ {print $2}'|\
+  sed -e 's/";//g' -e sed 's/"//g' > gene.ids
+#filter coutns to retain only counts for geneids
+grep -Fw -f gene.ids counts-555.txt > combined_555_rawCounts.txt
+```
+
+### Generate TPM
+From the raw counts, TPM table was generated using the raw counts. First `normalize.R` script was saved as follows:
+```{bash, eval=FALSE, engine="sh"} 
+#! /usr/bin/env Rscript
+# load the module
+# r-devtools
+# r-tidyr
+# r-dplyr
+# module load r-devtools r-tidyr r-dplyr
+## functions for rpkm and tpm
+## from https://gist.github.com/slowkow/c6ab0348747f86e2748b#file-counts_to_tpm-r-L44
+## from https://www.biostars.org/p/171766/
+rpkm <- function(counts, lengths) {
+  rate <- counts / lengths
+  rate / sum(counts) * 1e9
+}
+tpm <- function(counts, lengths) {
+  rate <- counts / lengths
+  rate / sum(rate) * 1e6
+}
+## read table from featureCounts output
+args <- commandArgs(T)
+tag <- tools::file_path_sans_ext(args[1])
+ftr.cnt <- read.table(args[1], sep="\t", stringsAsFactors=FALSE,
+  header=TRUE)
+library(dplyr)
+library(tidyr)
+ftr.rpkm <- ftr.cnt %>%
+  gather(sample, cnt, 7:ncol(ftr.cnt)) %>%
+  group_by(sample) %>%
+  mutate(rpkm=rpkm(cnt, Length)) %>%
+  select(-cnt) %>%
+  spread(sample,rpkm)
+write.table(ftr.rpkm, file=paste0(tag, "_rpkm.txt"), sep="\t", row.names=FALSE, quote=FALSE)
+ftr.tpm <- ftr.cnt %>%
+  gather(sample, cnt, 7:ncol(ftr.cnt)) %>%
+  group_by(sample) %>%
+  mutate(tpm=tpm(cnt, Length)) %>%
+  select(-cnt) %>%
+  spread(sample,tpm)
+write.table(ftr.tpm, file=paste0(tag, "_tpm.txt"), sep="\t", row.names=FALSE, quote=FALSE)
+```
+second, the code was excuted as follows:
+
+```{bash, eval=FALSE, engine="sh"} 
+./normalize.R combined_555_rawCounts.txt
+```
+This generates two files: `combined_555_rawCounts_tpm.txt` and `combined_555_rawCounts_rpkm.txt`.
+
+### Processing TPM
+
+```{r xiang, warnings=TRUE, message=FALSE}
+cts.xiang <-
+  as.matrix(read.csv(
+    "combined_555_rawCounts_tpm.txt",
+    sep = "\t",
+    row.names = "Geneid"
+  ))
+md.xiang <-
+  read.csv(
+    "assets/metadata_555.txt",
+    sep = "\t",
+    header = FALSE,
+    row.names = 1
+  )
+mycts.t <- as.data.frame(t(cts.xiang))
+metadata <- md.xiang
+colnames(metadata) <- c("days", "celltypes")
+metadata <- metadata[2]
+merged.table <- merge(metadata, mycts.t, by = "row.names", all.x = TRUE)
+merged.table <-
+  merged.table %>% remove_rownames %>% column_to_rownames(var = "Row.names")
+mycts.mean <- aggregate(. ~ celltypes, merged.table, mean)
+ordered <-
+  as.data.frame(t(
+    mycts.mean %>% remove_rownames %>% column_to_rownames(var = "celltypes")
+  ))
+se <-
+  SummarizedExperiment(
+    assays = SimpleList(as.matrix(ordered)),
+    rowData = row.names(ordered),
+    colData = colnames(ordered)
+  )
+te.dataset.xiang <-
+  teGeneRetrieval(
+    se,
+    foldChangeThreshold = 5,
+    maxNumberOfTissues = 6,
+    expressedGeneThreshold = 1
+  )
+saveRDS(te.dataset.xiang, file = "te.dataset.xiang.rds")
+results.summary <- as.data.frame(assay(te.dataset.xiang))
+```
+```{r xiang.bar1, fig.cap="Fig X.1: Xiang Dataset tissue enrichement distribution", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Tissue)) +
+    stat_count(alpha = 0.6, fill = "palegreen4") +
+  theme_niwot() + 
+  scale_y_log10() +
+  xlab("Cell Types") +
+  ylab("Number of Genes enriched")
+```
+
+
+```{r Xiang.bar2, fig.cap="Fig X.2: Xiang Dataset tissue enrichement results", fig.width=8, fig.height=8}
+ggplot(results.summary, aes(x = Group)) +
+    stat_count(alpha = 0.6, fill = "slateblue") +
+  theme_niwot() + 
+  xlab("Enrichment Type") +
+  ylab("Number of Genes enriched")
+```
+
+
+## Save Image file
+
+```{r image, warnings=TRUE, message=FALSE}
+save.image(file = "customPCE_data.RData")
+```
+
+## Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```

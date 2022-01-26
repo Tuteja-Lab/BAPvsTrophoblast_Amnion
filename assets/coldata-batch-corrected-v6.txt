@@ -1,0 +1,23 @@
+name	authors	group
+BT_EVT_Okae.1	Sheridan et al.	BT_EVT_Okae
+BT_SCT_Okae.1	Sheridan et al.	BT_SCT_Okae
+BT_TSC_Okae.1	Sheridan et al.	BT_TSC_Okae
+BT_EVT_Okae.2	Sheridan et al.	BT_EVT_Okae
+BT_SCT_Okae.2	Sheridan et al.	BT_SCT_Okae
+BT_TSC_Okae.2	Sheridan et al.	BT_TSC_Okae
+CT_EVT_Okae.1	Sheridan et al.	CT_EVT_Okae
+CT_SCT_Okae.1	Sheridan et al.	CT_SCT_Okae
+CT_TSC_Okae.1	Sheridan et al.	CT_TSC_Okae
+CT_EVT_Okae.2	Sheridan et al.	CT_EVT_Okae
+CT_SCT_Okae.2	Sheridan et al.	CT_SCT_Okae
+CT_TSC_Okae.2	Sheridan et al.	CT_TSC_Okae
+CT_EVT_Okae.3	Sheridan et al.	CT_EVT_Okae
+CT_SCT_Okae.3	Sheridan et al.	CT_SCT_Okae
+CT_TSC_Okae.3	Sheridan et al.	CT_TSC_Okae
+amnion_18w.1	Roost et al.	amnion
+amnion_9w.1	Roost et al.	amnion
+amnion_18w.2	Roost et al.	amnion
+amnion_16w.2	Roost et al.	amnion
+amnion_22w.1	Roost et al.	amnion
+amnion_9w.2	Roost et al.	amnion
+amnion_22w.2	Roost et al.	amnion

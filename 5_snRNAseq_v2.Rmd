@@ -1,0 +1,1216 @@
+---
+title: "Section 5: snRNAseq analysis"
+date: "`r Sys.Date()`"
+author:
+  - name: Arun Seetharam
+  - name: Ha Vu
+    affiliation: Tuteja Lab
+    affiliation_url: https://www.tutejalab.org
+output:
+  rmdformats::readthedown:
+    self_contained: true
+    thumbnails: false
+    lightbox: true
+    gallery: true
+    highlight: tango
+---
+
+```{r setup, include=FALSE}
+options(max.print = "75")
+knitr::opts_chunk$set(
+  echo = TRUE,
+  collapse = TRUE,
+  comment = "#>",
+  fig.path = "assets/",
+  fig.width = 8,
+  prompt = FALSE,
+  tidy = FALSE,
+  message = FALSE,
+  warning = TRUE
+)
+knitr::opts_knit$set(width = 75)
+```
+
+## snRNAseq analysis
+
+This section uses snRNA-seq BAP.d8 dataset ([_Khan_ et. al.,](https://www.frontiersin.org/articles/10.3389/fcell.2021.695248/full) [GSE171768](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE171768)) and nTE/nCT dataset ([_Io_ et. al.,](https://pubmed.ncbi.nlm.nih.gov/33831365/) [GSE167924](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE167924)) to run sn and scRNA-seq analyses with Seurat. Briefly, the count data are imported into R as a Seurat object, samples are integrated, transformed, and clustering analyses is performed. Expression of marker genes in each cluster, composition of cell types and PlacentaCellEnrich are then plotted.
+
+## Prerequisites
+
+R packages required for this section are loaded.
+
+```{r package, warnings=TRUE, message=FALSE}
+setwd("~/github/BAPvsTrophoblast_Amnion")
+library(Seurat)
+library(SeuratWrappers)
+library(knitr)
+library(kableExtra)
+library(ggplot2)
+library(cowplot)
+library(patchwork)
+library(metap)
+library(multtest)
+library(gridExtra)
+library(dplyr)
+library(stringr)
+library(TissueEnrich)
+library(gprofiler2)
+library(tidyverse)
+library(enhancedDimPlot)
+library(calibrate)
+library(ggrepel)
+library(dittoSeq)
+library(ComplexHeatmap)
+library(RColorBrewer)
+library(pheatmap)
+library(scales)
+library(plotly)
+library(R.utils)
+library(biomaRt)
+```
+
+## Import datasets
+
+The 10X data was already processed with `CellRanger` (v.4.0.0) and the count table was ready for us to import for the data analyses.
+We used the inbuilt function to import this data and to create a `Seurat` object as described below.
+
+
+```{r dataset, warnings=TRUE, message=FALSE}
+experiment_name = "BAP"
+dataset_loc <- "~/TutejaLab/expression-data"
+ids <-
+  c(
+    "5pcO2_r1",
+    "5pcO2_r2",
+    "20pcO2_r1",
+    "20pcO2_r2",
+    "nCT_D5",
+    "nCT_D10",
+    "nTE_D2",
+    "nTE_D3"
+  )
+d10x.data <- sapply(ids, function(i) {
+  d10x <-
+    Read10X(file.path(dataset_loc, i, "filtered_feature_bc_matrix"))
+  colnames(d10x) <-
+    paste(sapply(strsplit(colnames(d10x), split = "-"), '[[' , 1L), 
+          i,
+          sep ="-")
+  d10x
+})
+experiment.data <- do.call("cbind", d10x.data)
+bapd8.combined <- CreateSeuratObject(
+  experiment.data,
+  project = "BAPd8",
+  min.cells = 10,
+  min.genes = 200,
+  names.field = 2,
+  names.delim = "\\-"
+)
+```
+
+## Data quality inspection
+
+After the data was imported, we checked the quality of the data. Mitochondrial expression is an important criteria (along with other quantitative features of each nuclei) to decide if the nucleus is high quality. We tested it as follows.
+
+### MT ratio in nucleus
+
+```{r metadataStats, warnings=TRUE, message=FALSE}
+bapd8.temp <- bapd8.combined
+bapd8.combined$log10GenesPerUMI <-
+  log10(bapd8.combined$nFeature_RNA) / log10(bapd8.combined$nCount_RNA)
+bapd8.combined$mitoRatio <-
+  PercentageFeatureSet(object = bapd8.combined, pattern = "^MT-")
+bapd8.combined$mitoRatio <- bapd8.combined@meta.data$mitoRatio / 100
+metadata <- bapd8.combined@meta.data
+metadata$cells <- rownames(metadata)
+metadata <- metadata %>%
+  dplyr::rename(
+    seq_folder = orig.ident,
+    nUMI = nCount_RNA,
+    nGene = nFeature_RNA,
+    seq_folder = orig.ident
+  )
+```
+
+```{r mtplot, fig.cap="Fig 5.1: MT ratio across samples. Cells with higher MT ratio also have less gene counts", fig.width=10, fig.height=12}
+mt <-
+  ggplot(dat = metadata, aes(x = nUMI, y = nGene, color = mitoRatio)) +
+  geom_point(alpha = 0.5) +
+  scale_colour_gradient(low = "gray90", high = "black") +
+  labs(colour = "MT ratio") +
+  theme_bw(base_size = 12) +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    strip.background = element_blank(),
+    panel.border = element_rect(colour = "black")
+  ) +
+  xlab("RNA counts") + ylab("Gene counts") +
+  stat_smooth(method = lm) +
+  facet_wrap(~ seq_folder, labeller = labeller(
+    seq_folder =
+      c(
+        "20pcO2_r1" = "20% Oxygen (rep1)",
+        "20pcO2_r2" = "20% Oxygen (rep2)",
+        "5pcO2_r1" = "5% Oxygen (rep1)",
+        "5pcO2_r2" = "5% Oxygen (rep2)",
+        "nCT_D5" = "nCT day 5",
+        "nCT_D10" = "nCT day 10",
+        "nTE_D2" = "nTE day 2",
+        "nTE_D3" = "nTE day 3"
+      )
+  )) +
+  scale_y_continuous(label = comma) +
+  scale_x_continuous(label = comma)
+mt
+```
+### Number of nuclei per sample
+
+```{r otherQC1, fig.cap="Fig 5.2: Number of cells in each sample", fig.width=8, fig.height=5}
+ncells <- ggplot(metadata, aes(x = seq_folder, fill = seq_folder)) +
+  geom_bar() +
+  theme_classic() +
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  )) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+  ggtitle("Number of Cells")
+ncells
+```
+
+
+### Density of nuclei per sample
+
+```{r otherQC2, fig.cap="Fig 5.3: Density of cells across samples transcript counts", fig.width=8, fig.height=5}
+dcells <-
+  ggplot(metadata, aes(color = seq_folder, x = nUMI, fill = seq_folder)) +
+  geom_density(alpha = 0.2) +
+  scale_x_log10() +
+  theme_classic() +
+  ylab("Cell density") +
+  geom_vline(xintercept = 500)
+dcells
+```
+
+### Number of cells vs. genes
+
+```{r otherQC3, fig.cap="Fig 5.4: Number of cells vs. total gene coutns", fig.width=8, fig.height=5}
+ngenes <-
+  ggplot(metadata, aes(x = seq_folder, y = log10(nGene), fill = seq_folder)) +
+  geom_boxplot() +
+  theme_classic() +
+  theme(axis.text.x = element_text(
+    angle = 45,
+    vjust = 1,
+    hjust = 1
+  )) +
+  theme(plot.title = element_text(hjust = 0.5, face = "bold")) +
+  ggtitle("NCells vs NGenes")
+ngenes
+```
+
+### Number of cells vs. transcripts
+
+```{r otherQC4, fig.cap="Fig 5.5: Number of cells vs. transcripts", fig.width=8, fig.height=5}
+dtranscripts <-
+  ggplot(metadata,
+         aes(x = log10GenesPerUMI, color = seq_folder, fill = seq_folder)) +
+  geom_density(alpha = 0.2) +
+  theme_classic() +
+  geom_vline(xintercept = 0.8)
+dtranscripts
+```
+
+### Mitochondrial density across samples
+
+```{r otherQC5, fig.cap="Fig 5.6: Mitochondrial density across samples", fig.width=8, fig.height=5}
+mtratio <-
+  ggplot(metadata, aes(color = seq_folder, x = mitoRatio, fill = seq_folder)) +
+  geom_density(alpha = 0.2) +
+  scale_x_log10() +
+  theme_classic() +
+  geom_vline(xintercept = 0.2)
+mtratio
+```
+
+## Data filtering
+
+After inspection, we decided to remove all mitochondrial genes as well as ribosomal genes from our analyses.
+
+### set up the metadata file and organize
+
+```{r metadata2, warnings=TRUE, message=FALSE}
+bapd8.combined <- bapd8.temp
+df <- bapd8.combined@meta.data
+df$replicate <- NA
+df$replicate[which(str_detect(df$orig.ident, "5pcO2"))] <- "5pcO2"
+df$replicate[which(str_detect(df$orig.ident, "20pcO2"))] <- "20pcO2"
+df$replicate[which(str_detect(df$orig.ident, "nCT_"))] <- "nCT"
+df$replicate[which(str_detect(df$orig.ident, "nTE_"))] <- "nTE"
+bapd8.combined@meta.data <- df
+bapd8.combined[["percent.mt"]] <-
+  PercentageFeatureSet(bapd8.combined, pattern = "^MT-")
+```
+
+### Comparing samples QC across replicates
+
+```{r scRNAseqMetrics1, fig.cap="Fig 5.7: Comparing gene counts, transcript counts and MT percent across samples", fig.width=10, fig.height=5}
+p <-
+  VlnPlot(bapd8.combined, features = "nFeature_RNA", pt.size = 1) +
+  geom_hline(yintercept = 200,
+             color = "red",
+             size = 1) +
+  geom_hline(yintercept = 10000,
+             color = "red",
+             size = 1) +
+  theme(legend.position = "none")
+q <- VlnPlot(bapd8.combined, features = "nCount_RNA", pt.size = 1) +
+  theme(legend.position = "none")
+r <- VlnPlot(bapd8.combined, features = "percent.mt", pt.size = 1) +
+  geom_hline(yintercept = 15,
+             color = "red",
+             size = 1) +
+  theme(legend.position = "none")
+panel_plot <-
+  plot_grid(p,
+            q,
+            r,
+            labels = c("A", "B", "C"),
+            ncol = 3,
+            nrow = 1)
+panel_plot
+```
+
+### Filtering
+
+```{r scRNAseqMetrics2, fig.cap="Fig 5.8: Scatter plot showing distribution of cells percent MT vs. mRNA counts, and gene counts vs. mRNA counts. A, B before filtering, C, D preliminary filtering, and E, F final cell content in samples used for analyses.", fig.width=10, fig.height=12}
+B1 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA", 
+                 feature2 = "percent.mt")
+B2 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA", 
+                 feature2 = "nFeature_RNA")
+bapd8.combined <-
+  subset(bapd8.combined,
+         subset = nFeature_RNA > 200 &
+           nFeature_RNA < 10000 & percent.mt < 25)
+I1 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "percent.mt")
+I2 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "nFeature_RNA")
+bapd8.combined <-
+  subset(bapd8.combined,
+         subset = nFeature_RNA > 200 &
+           nFeature_RNA < 10000 & percent.mt < 15)
+A1 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "percent.mt")
+A2 <-
+  FeatureScatter(bapd8.combined, 
+                 feature1 = "nCount_RNA",
+                 feature2 = "nFeature_RNA")
+B <- B1 | B2
+I <- I1 | I2
+A <- A1 | A2
+panel_plot <-
+  plot_grid(
+    B1,
+    B2,
+    I1,
+    I2,
+    A1,
+    A2,
+    labels = c("A", "B", "C", "D", "E", "F"),
+    ncol = 2,
+    nrow = 3
+  )
+panel_plot
+```
+### Removing ribosomal and MT transcripts
+
+```{r cleanData, warnings=TRUE, message=FALSE}
+counts <- GetAssayData(object = bapd8.combined, slot = "counts")
+counts <-
+  counts[grep(pattern = "^MT",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^MT",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^RPL",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^RPS",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^MRPS",
+              x = rownames(counts),
+              invert = TRUE), ]
+counts <-
+  counts[grep(pattern = "^MRPL",
+              x = rownames(counts),
+              invert = TRUE), ]
+keep_genes <- Matrix::rowSums(counts) >= 10
+filtered_counts <- counts[keep_genes,]
+bapd8.fcombined <-
+  CreateSeuratObject(filtered_counts, meta.data = bapd8.combined@meta.data)
+bapd8.fcombined@meta.data <- bapd8.fcombined@meta.data[1:4]
+bapd8.combined <- bapd8.fcombined
+```
+## Data integration and Clustering
+
+`Seurat` package was used for integrating samples and running the snRNA-seq analyses.
+
+
+### Data integration/clustering
+
+(see optimization section below)
+
+```{r seurat, warnings=TRUE, message=FALSE}
+bapd8.list <- SplitObject(bapd8.combined, split.by = "orig.ident")
+bapd8.list <- lapply(
+  X = bapd8.list,
+  FUN = function(x) {
+    x <- NormalizeData(x)
+    x <-
+      FindVariableFeatures(x, selection.method = "vst", nfeatures = 2000)
+  }
+)
+bapd8.anchors <-
+  FindIntegrationAnchors(object.list = bapd8.list, dims = 1:20)
+bapd8.integrated <-
+  IntegrateData(anchorset = bapd8.anchors, dims = 1:20)
+DefaultAssay(bapd8.integrated) <- "integrated"
+bapd8.integrated <- ScaleData(bapd8.integrated, verbose = FALSE)
+bapd8.integrated <-
+  RunPCA(bapd8.integrated, npcs = 30, verbose = FALSE)
+bapd8.integrated <-
+  RunUMAP(bapd8.integrated, reduction = "pca", dims = 1:20)
+bapd8.integrated <-
+  FindNeighbors(bapd8.integrated, reduction = "pca", dims = 1:20)
+bapd8.integrated <- FindClusters(bapd8.integrated, resolution = 0.5)
+num.clusters <- nlevels(bapd8.integrated$seurat_clusters)
+num.clusters
+```
+
+#### Optimization: Cells/Genes defining PCA (4 PCs)
+
+```{r optimization1, fig.cap="Fig 5.9: Genes that define first 4 principal components", fig.width=8, fig.height=12}
+VizDimLoadings(bapd8.integrated, dims = 1:4, reduction = "pca")
+```
+
+#### Optimization: Determine data dimensionality
+
+```{r optimization2, fig.cap="Fig 5.10: Data Dimensionality. (A) Elbow plot showing the rankings of PC (first 20) in the PCA (B) JackStraw plot showing the distribution of p-values for each PC (first 20 shown) in the PCA", fig.width=8, fig.height=10}
+bapd8.integrated <- JackStraw(bapd8.integrated, num.replicate = 100)
+bapd8.integrated <- ScoreJackStraw(bapd8.integrated, dims = 1:20)
+elbow <- ElbowPlot(bapd8.integrated)
+jack <- JackStrawPlot(bapd8.integrated, dims = 1:20)
+panel_plot <- plot_grid(elbow, jack, labels = c('A', 'B'), ncol = 1)
+panel_plot
+```
+
+### Renumber the clusters
+
+By default the clusters are numbered 0-12, we need them as 1-13.
+
+```{r renumber, warnings=TRUE, message=FALSE}
+df <- bapd8.integrated@meta.data
+df$new_clusters <- as.factor(as.numeric(df$seurat_clusters))
+bapd8.integrated@meta.data <- df
+Idents(bapd8.integrated) <- "new_clusters"
+```
+
+### Visualize dimensional reduction
+
+```{r clusterplots, fig.cap="Fig 5.11: Dimensional reduction plot showing cells plotted in two dimensions. (A) colored based on cluster identitiy (B) colored based on sample identity", fig.width=8, fig.height=5}
+A = enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'ident',
+  reduction = "umap",
+  label = TRUE,
+  pt.size = 1,
+  alpha = 0.5
+) +
+  ggtitle("A") +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(legend.position = "none",
+        plot.title = element_text(face = "bold"))
+
+B <- enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'replicate',
+  reduction = "umap",
+  label = FALSE,
+  pt.size = 1,
+  alpha = 0.4
+) +
+  ggtitle("B") +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(
+    legend.justification = c(1, 1),
+    legend.position = c(1, 1),
+    plot.title = element_text(face = "bold")
+  ) +
+  scale_colour_manual(
+    name = "Conditions",
+    labels = c(expression(paste('20% ', 'O'[2])),
+               expression(paste('5% ', 'O'[2])),
+               'nCT',
+               'nTE'),
+    values = c(
+      "20pcO2" = "#DA3C96",
+      "5pcO2" = "#A90065",
+      "nCT" = "#FFD74D",
+      "nTE" = "#9BC13C"
+    )
+  ) +
+  scale_fill_manual(
+    name = "Conditions",
+    labels = c(expression(paste('20% ', 'O'[2])),
+               expression(paste('5% ', 'O'[2])),
+               'nCT',
+               'nTE'),
+    values = c(
+      "20pcO2" = "#DA3C96",
+      "5pcO2" = "#A90065",
+      "nCT" = "#FFD74D",
+      "nTE" = "#9BC13C"
+    )
+  ) +
+  scale_linetype_manual(values = "blank")
+
+C <- enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'orig.ident',
+  reduction = "umap",
+  label = FALSE,
+  pt.size = 1,
+  alpha = 0.4
+) +
+  ggtitle("C") +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(
+    legend.justification = c(1, 1),
+    legend.position = c(1, 1),
+    plot.title = element_text(face = "bold")
+  ) +
+  scale_colour_manual(
+    name = "Replicates",
+    labels = c(
+      expression(paste('20% ', 'O'[2], ' rep1')),
+      expression(paste('20% ', 'O'[2], ' rep2')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      "nCT day 5",
+      "nCT day 10",
+      "nTE day 3",
+      "nTE day 5"
+    ),
+    values = c(
+      "20pcO2_r1" = "#0571b0",
+      "20pcO2_r2" = "#92c5de",
+      "5pcO2_r1" = "#ca0020",
+      "5pcO2_r2" = "#f4a582",
+      "nCT_D5" = "#d133ff",
+      "nCT_D10" = "#ff33f6",
+      "nTE_D2" = "#33ffa2",
+      "nTE_D3" = "#5bff33"
+    )
+  ) +
+  scale_fill_manual(
+    name = "Replicates",
+    labels = c(
+      expression(paste('20% ', 'O'[2], ' rep1')),
+      expression(paste('20% ', 'O'[2], ' rep2')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      expression(paste('5% ', 'O'[2], ' rep1')),
+      "nCT day 5",
+      "nCT day 10",
+      "nTE day 3",
+      "nTE day 5"
+    ),
+    values = c(
+      "20pcO2_r1" = "#0571b0",
+      "20pcO2_r2" = "#92c5de",
+      "5pcO2_r1" = "#ca0020",
+      "5pcO2_r2" = "#f4a582",
+      "nCT_D5" = "#d133ff",
+      "nCT_D10" = "#ff33f6",
+      "nTE_D2" = "#33ffa2",
+      "nTE_D3" = "#5bff33"
+    )
+  ) +
+  scale_linetype_manual(values = "blank")
+panel_plot <- plot_grid(A, B, ncol = 2, nrow = 1)
+panel_plot
+```
+```{r clusterplotsreplicate, fig.cap="Fig 5.12: Dimensional reduction plot showing distribution of cells in the cluster across samples", fig.width=8, fig.height=6}
+DimPlot(object = bapd8.integrated,
+        split.by = 'orig.ident',
+        ncol = 4) +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(legend.position = "none")
+```
+#### Interactive dimensional reduction plot
+
+```{r clusterplotsInteractive, fig.cap="Fig 5.13: Interactive dimensional reduction plot in two dimensions. The colored dots represent individual cells and are assigned based on cluster identity", fig.width=6, fig.height=5}
+A = enhancedDimPlot(
+  object = bapd8.integrated,
+  grouping_var = 'ident',
+  reduction = "umap",
+  label = FALSE,
+  pt.size = 1,
+  alpha = 0.5
+) +
+  xlab("UMAP_1") +
+  ylab("UMAP_2") +
+  theme_classic() +
+  theme(legend.position = "none")
+ggplotly(A)
+```
+
+### Finding cluster markers
+
+Cluster markers are defined as fold change of >= 1.5 and p-value (adj) <= 0.05.
+We will find all markers for each cluster with a loop.
+
+```{r markers, warnings=TRUE, message=FALSE}
+DefaultAssay(bapd8.integrated) <- "RNA"
+for (i in 1:num.clusters) {
+  try({
+    cluster.markers.all <- FindMarkers(bapd8.integrated, ident.1 = i)
+    cluster.markers.filtered <-
+      cluster.markers.all %>% 
+      filter(avg_log2FC >= 0.584962501) %>%
+      filter(p_val_adj <= 0.05) %>%
+      arrange(desc(avg_log2FC))
+    markers.filtered.names <- rownames(cluster.markers.filtered)
+    assign(paste("cluster.marker.names", i, sep = "."),
+           markers.filtered.names)
+  })
+}
+```
+### Cluster cell type composition
+
+```{r barplotData, warnings=TRUE, message=FALSE}
+fullCounts <- tibble(
+  cluster = bapd8.integrated@meta.data$new_clusters,
+  cell_type = bapd8.integrated@meta.data$orig.ident
+) %>%
+  dplyr::group_by(cluster, cell_type) %>%
+  dplyr::count() %>%
+  dplyr::group_by(cluster) %>%
+  dplyr::ungroup() %>%
+  dplyr::mutate(cluster = paste0("Cluster_", cluster))
+fullCounts <- fullCounts %>%
+  group_by(cell_type) %>%
+  mutate(cell_type_sum = sum(n)) %>%
+  mutate(percent = (n * 100) / cell_type_sum)
+list2env(split(fullCounts, fullCounts$cluster), envir = .GlobalEnv)
+```
+### Bar plot function
+
+```{r barplotFunc, warnings=TRUE, message=FALSE}
+mybarplot <- function(pdata, i) {
+  ggplot(data = pdata,
+         aes(
+           x = cell_type,
+           y = percent,
+           fill = cell_type,
+           alpha = 0.5
+         )) +
+    geom_bar(stat = "identity") +
+    theme_classic(base_size = 12) +
+    theme(legend.position = "none",
+          axis.text.x = element_text(
+            angle = 45,
+            vjust = 1,
+            hjust = 1
+          )) +
+    ggtitle(paste("Cluster", i, "cell composition")) +
+    ylab("% cells in cluster") +
+    xlab("") +
+    scale_colour_manual(
+      name = "Replicates",
+      labels = c(
+        expression(paste('20% ', 'O'[2], ' rep1')),
+        expression(paste('20% ', 'O'[2], ' rep2')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        "nCT day 5",
+        "nCT day 10",
+        "nTE day 3",
+        "nTE day 5"
+      ),
+      values = c(
+        "20pcO2_r1" = "#DA3C96",
+        "20pcO2_r2" = "#DA3C96",
+        "5pcO2_r1" = "#A90065",
+        "5pcO2_r2" = "#A90065",
+        "nCT_D5" = "#FFD74D",
+        "nCT_D10" = "#FFD74D",
+        "nTE_D2" = "#9BC13C",
+        "nTE_D3" = "#9BC13C"
+      )
+    ) +
+    scale_fill_manual(
+      name = "Replicates",
+      labels = c(
+        expression(paste('20% ', 'O'[2], ' rep1')),
+        expression(paste('20% ', 'O'[2], ' rep2')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        expression(paste('5% ', 'O'[2], ' rep1')),
+        "nCT day 5",
+        "nCT day 10",
+        "nTE day 3",
+        "nTE day 5"
+      ),
+      values = c(
+        "20pcO2_r1" = "#DA3C96",
+        "20pcO2_r2" = "#DA3C96",
+        "5pcO2_r1" = "#A90065",
+        "5pcO2_r2" = "#A90065",
+        "nCT_D5" = "#FFD74D",
+        "nCT_D10" = "#FFD74D",
+        "nTE_D2" = "#9BC13C",
+        "nTE_D3" = "#9BC13C"
+      )
+    ) +
+    scale_linetype_manual(values = "blank")
+}
+``` 
+
+### Define Colors
+
+Define colors for each cluster so that they are standardized.
+
+```{r colorAssign, warnings=TRUE, message=FALSE}
+ggplotColours <- function(n = 6, h = c(0, 360) + 15) {
+  if ((diff(h) %% 360) < 1)
+    h[2] <- h[2] - 360 / n
+  hcl(h = (seq(h[1], h[2], length = n)), c = 100, l = 65)
+}
+color_list <- ggplotColours(n = 13)
+```
+
+### Violin plot function
+
+```{r gVioFunction, warnings=TRUE, message=FALSE}
+grouped_violinPlots <-
+  function(markersfile,
+           clusternumber,
+           seuratobject = bapd8.integrated) {
+    dittoPlotVarsAcrossGroups(
+      seuratobject,
+      markersfile,
+      group.by = "new_clusters",
+      main = paste("Cluster ", clusternumber, " markers expression"),
+      xlab = "",
+      ylab = "Mean z-score expression",
+      x.labels = c(
+        "Cluster 1",
+        "Cluster 2",
+        "Cluster 3",
+        "Cluster 4",
+        "Cluster 5",
+        "Cluster 6",
+        "Cluster 7",
+        "Cluster 8",
+        "Cluster 9",
+        "Cluster 10",
+        "Cluster 11",
+        "Cluster 12",
+        "Cluster 13"
+      ),
+      vlnplot.lineweight = 0.5,
+      legend.show = FALSE,
+      jitter.size = 0.5,
+      color.panel = color_list
+    )
+  }
+```
+### PCE plot function
+
+Load the PCE data
+
+```{r pceimport}
+# Vento-Tormo et al., dataset
+l <-
+  load(file = "assets/combine-test-expression1.Rdata")
+humanGeneMapping <- dataset$GRCH38$humanGeneMapping
+d <- dataset$PlacentaDeciduaBloodData
+data <- d$expressionData
+cellDetails <- d$cellDetails
+
+# Xiang et al., dataset
+te.dataset.xiang <- readRDS("assets/te.dataset.xiang.rds")
+
+# Castel et al., dataset
+te.dataset.castel <- readRDS("assets/te.dataset.castel.rds")
+
+# full names for cell types
+    xi.md <-
+  read.csv(
+    "assets/md-xi.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+vt.md <-
+  read.csv(
+    "assets/md-vt.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+zp.md <-
+  read.csv(
+    "assets/md-zp.tsv",
+    sep = "\t",
+    header = TRUE,
+    row.names = 1
+  )
+
+```
+
+
+```{r pcefunction}
+runpce <- function(geneList1, geneList2, filename, barcolor) {
+  expressionData <-
+    data[intersect(row.names(data), humanGeneMapping$Gene),]
+  se <-
+    SummarizedExperiment(
+      assays = SimpleList(as.matrix(expressionData)),
+      rowData = row.names(expressionData),
+      colData = colnames(expressionData)
+    )
+  cellSpecificGenesExp <-
+    teGeneRetrieval(se, expressedGeneThreshold = 1)
+  print(length(geneList1))
+  gs.vt <- GeneSet(geneIds = toupper(geneList1))
+  output.vt <- teEnrichmentCustom(gs.vt, cellSpecificGenesExp)
+  en.output.vt <-
+    setNames(data.frame(assay(output.vt[[1]]), row.names = rowData(output.vt[[1]])[, 1]),
+             colData(output.vt[[1]])[, 1])
+  row.names(cellDetails) <- cellDetails$RName
+  en.output.vt$Tissue <-
+    cellDetails[row.names(en.output.vt), "CellName"]
+  gs <- GeneSet(unique(geneList2))
+  output.xi <- teEnrichmentCustom(gs, te.dataset.xiang)
+  output.zp <- teEnrichmentCustom(gs, te.dataset.castel)
+  en.output.xi <-
+    setNames(data.frame(assay(output.xi[[1]]), row.names = rowData(output.xi[[1]])[, 1]),
+             colData(output.xi[[1]])[, 1])
+  en.output.xi$Tissue <- rownames(en.output.xi)
+  en.output.zp <-
+    setNames(data.frame(assay(output.zp[[1]]), row.names = rowData(output.zp[[1]])[, 1]),
+             colData(output.zp[[1]])[, 1])
+  en.output.zp$Tissue <- rownames(en.output.zp)
+  en.output.zp$source <- "ZP"
+  en.output.zp <- en.output.zp[order(-en.output.zp$Log10PValue), ]
+  en.output.zp <-
+    merge(en.output.zp, zp.md, by = "row.names", all.x = TRUE)
+  en.output.zp <- rownames_to_column(en.output.zp, var = "Name")
+  en.output.vt$source <- "VT"
+  en.output.vt <- en.output.vt[order(-en.output.vt$Log10PValue), ]
+  en.output.vt <-
+    merge(en.output.vt, vt.md, by = "row.names", all.x = TRUE)
+  en.output.vt <- rownames_to_column(en.output.vt, var = "Name")
+  en.output.xi$source <- "Xi"
+  en.output.xi <- en.output.xi[order(-en.output.xi$Log10PValue), ]
+  en.output.xi <-
+    merge(en.output.xi, xi.md, by = "row.names", all.x = TRUE)
+  en.output.xi <- rownames_to_column(en.output.xi, var = "Name")
+  en.conbined <- rbind(en.output.vt, en.output.xi, en.output.zp)
+  p <- 0.05
+  logp <- -log10(p)
+  en.conbined <-  en.conbined %>%
+    mutate(Log10PValue = replace(Log10PValue, Log10PValue < logp, 0))
+  en.conbined %>%
+    group_by(source) %>%
+    arrange(source, desc(Log10PValue)) %>% dplyr::slice(1:7)  %>%
+    ungroup %>%
+    mutate(
+      source = as.factor(source),
+      CellNames = tidytext::reorder_within(CellNames, Log10PValue, source, sep = ":")
+    ) %>%
+    ggplot(aes(CellNames, Log10PValue)) + geom_bar(stat = 'identity', fill = barcolor) +  theme_minimal() +
+    theme(
+      axis.text.x = element_text(
+        vjust = 1,
+        hjust = 1,
+        size = 12
+      ),
+      axis.text.y = element_text(size = 12),
+      plot.margin = margin(10, 10, 10, 100),
+      legend.position = "none",
+      plot.title = element_text(
+        color = "black",
+        size = 18,
+        face = "bold.italic"
+      ),
+      axis.title.y = element_blank(),
+      axis.line.x = element_line(
+        colour = 'black',
+        size = 0.5,
+        linetype = 'solid'
+      ),
+      axis.ticks.x = element_line(
+        colour = 'black',
+        size = 1,
+        linetype = 'solid'
+      ),
+      axis.title.x = element_text(
+        color = "black",
+        size = 14,
+        face = "bold"
+      )
+    )  +
+    scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks()) +
+    facet_wrap(~ source, scales = "free", ncol = 3) +
+    coord_flip()
+}
+```
+## Converting Gene IDs
+
+For PCE analyses we need to covert gene symbols to ENS ids. We need the conversion table, a function to convert marker list and run this function on each cluster markers. 
+```{r annotations, warnings=TRUE, message=FALSE}
+ensembl = useMart("ENSEMBL_MART_ENSEMBL")
+listDatasets(ensembl) %>%
+  filter(str_detect(description, "Human"))
+ensembl = useDataset("hsapiens_gene_ensembl", mart = ensembl)
+listFilters(ensembl) %>%
+  filter(str_detect(name, "ensembl"))
+filterType <- "ensembl_gene_id_version"
+cts <- as.matrix(read.csv('assets/counts-subset-v5.txt', sep = "\t", row.names = "gene.ids"))
+filterValues <- rownames(cts)
+listAttributes(ensembl) %>%
+  head(20)
+attributeNames <- c('ensembl_gene_id_version',
+                    'ensembl_gene_id',
+                    'external_gene_name')
+annot <- getBM(
+  attributes = attributeNames,
+  filters = filterType,
+  values = filterValues,
+  mart = ensembl
+)
+isDup <- duplicated(annot$ensembl_gene_id)
+dup <- annot$ensembl_gene_id[isDup]
+annot <- annot[!annot$ensembl_gene_id %in% dup, ] #this object will be saved and used later
+```
+```{r convertFun, warnings=TRUE, message=FALSE}
+symbols.to.ensembl <- function(genesymbols) {
+  newlist <- paste0(deparse(substitute(genesymbols)), ".ensids") 
+  temp <- annot[annot$external_gene_name %in% genesymbols,]
+  temp <- temp[c(2,3)]
+  assign(newlist, temp, envir = .GlobalEnv)
+}
+```
+
+```{r convert, warnings=TRUE, message=FALSE}
+symbols.to.ensembl(cluster.marker.names.1)
+symbols.to.ensembl(cluster.marker.names.2)
+symbols.to.ensembl(cluster.marker.names.3)
+symbols.to.ensembl(cluster.marker.names.4)
+symbols.to.ensembl(cluster.marker.names.5)
+symbols.to.ensembl(cluster.marker.names.6)
+symbols.to.ensembl(cluster.marker.names.7)
+symbols.to.ensembl(cluster.marker.names.8)
+symbols.to.ensembl(cluster.marker.names.9)
+symbols.to.ensembl(cluster.marker.names.10)
+symbols.to.ensembl(cluster.marker.names.11)
+symbols.to.ensembl(cluster.marker.names.12)
+symbols.to.ensembl(cluster.marker.names.13)
+```
+### Run analyses on each cluster
+
+#### Cluster 1
+
+```{r cluster1, fig.cap="Fig 5.14: Cluster 1 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+
+pce <- runpce(cluster.marker.names.1.ensids$ensembl_gene_id, cluster.marker.names.1, "Cluster_1_allPCE", color_list[1])
+count <- mybarplot(Cluster_1, 1)
+violin <- grouped_violinPlots(cluster.marker.names.1, 1)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+
+#### Cluster 2
+
+```{r cluster2, fig.cap="Fig 5.15: Cluster 2 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.2.ensids$ensembl_gene_id, cluster.marker.names.2, "Cluster_2_allPCE", color_list[2])
+count <- mybarplot(Cluster_2, 2)
+violin <- grouped_violinPlots(cluster.marker.names.2, 2)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+
+#### Cluster 3
+
+```{r cluster3, fig.cap="Fig 5.16: Cluster 3 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.3.ensids$ensembl_gene_id, cluster.marker.names.3, "Cluster_3_allPCE", color_list[3])
+count <- mybarplot(Cluster_3, 3)
+violin <- grouped_violinPlots(cluster.marker.names.3, 3)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 4
+
+```{r cluster4, fig.cap="Fig 5.17: Cluster 4 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.4.ensids$ensembl_gene_id, cluster.marker.names.4, "Cluster_4_allPCE", color_list[4])
+count <- mybarplot(Cluster_4, 4)
+violin <- grouped_violinPlots(cluster.marker.names.4, 4)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 5
+
+```{r cluster5, fig.cap="Fig 5.18: Cluster 5 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.5.ensids$ensembl_gene_id, cluster.marker.names.5, "Cluster_5_allPCE", color_list[5])
+count <- mybarplot(Cluster_5, 5)
+violin <- grouped_violinPlots(cluster.marker.names.5, 5)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 6
+
+```{r cluster6, fig.cap="Fig 5.19: Cluster 6 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.6.ensids$ensembl_gene_id, cluster.marker.names.6, "Cluster_6_allPCE", color_list[6])
+count <- mybarplot(Cluster_6, 6)
+violin <- grouped_violinPlots(cluster.marker.names.6, 6)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+#### Cluster 7
+
+```{r cluster7, fig.cap="Fig 5.20: Cluster 7 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.7.ensids$ensembl_gene_id, cluster.marker.names.7, "Cluster_7_allPCE", color_list[7])
+count <- mybarplot(Cluster_7, 7)
+violin <- grouped_violinPlots(cluster.marker.names.7, 7)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 8
+
+```{r cluster8, fig.cap="Fig 5.21: Cluster 8 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results",fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.8.ensids$ensembl_gene_id, cluster.marker.names.8, "Cluster_8_allPCE", color_list[8])
+count <- mybarplot(Cluster_8, 8)
+violin <- grouped_violinPlots(cluster.marker.names.8, 8)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 9
+
+```{r cluster9, fig.cap="Fig 5.22: Cluster 9 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results",fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.9.ensids$ensembl_gene_id, cluster.marker.names.9, "Cluster_9_allPCE", color_list[9])
+count <- mybarplot(Cluster_9, 9)
+violin <- grouped_violinPlots(cluster.marker.names.9, 9)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 10
+
+```{r cluster10, fig.cap="Fig 5.23: Cluster 10 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.10.ensids$ensembl_gene_id, cluster.marker.names.10, "Cluster_10_allPCE", color_list[10])
+count <- mybarplot(Cluster_10, 10)
+violin <- grouped_violinPlots(cluster.marker.names.10, 10)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1.3)
+  )
+panel_plot
+```
+#### Cluster 11
+
+```{r cluster11, fig.cap="Fig 5.24: Cluster 11 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.11.ensids$ensembl_gene_id, cluster.marker.names.11, "Cluster_11_allPCE", color_list[11])
+count <- mybarplot(Cluster_11, 11)
+violin <- grouped_violinPlots(cluster.marker.names.11, 11)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 12
+
+```{r cluster12, fig.cap="Fig 5.25: Cluster 12 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.12.ensids$ensembl_gene_id, cluster.marker.names.12, "Cluster_12_allPCE", color_list[12])
+count <- mybarplot(Cluster_12, 12)
+violin <- grouped_violinPlots(cluster.marker.names.12, 12)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+#### Cluster 13
+
+```{r cluster13, fig.cap="Fig 5.26: Cluster 13 (A) percentage cells of various samples for this cluster, (B) expression of the marker genes across clusters, (C) cell-enrichment results", fig.width=14, fig.height=10}
+pce <- runpce(cluster.marker.names.13.ensids$ensembl_gene_id, cluster.marker.names.13, "Cluster_13_allPCE", color_list[13])
+count <- mybarplot(Cluster_13, 13)
+violin <- grouped_violinPlots(cluster.marker.names.13, 13)
+toprow <-
+  plot_grid(count, violin, labels = c('A', 'B'), align = 'h')
+panel_plot <-
+  plot_grid(
+    toprow,
+    pce,
+    axis = "r",
+    labels = c('', 'C'),
+    ncol = 1,
+    rel_heights = c(1, 1),
+    rel_widths = c(1, 1.3)
+ )
+panel_plot
+```
+
+## Session Information
+
+```{r sessioninfo}
+sessionInfo()
+```
+
