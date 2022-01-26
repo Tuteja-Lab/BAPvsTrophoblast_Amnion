@@ -95,6 +95,12 @@ The data used in this study are publicly available:
 | PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nTE_D3                              | 1          | ABPJ treatment                                  | Io _et al_.       | H9_sc.nTE_D3_Io       |
 | PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D5                              | 1          | ACE treatment                                   | Io _et al_.       | H9_sc.nCT_D5_Io       |
 | PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D10                             | 1          | ACE treatment                                   | Io _et al_.       | H9_sc.nCT_D10_Io      |
+| PRJNA414247 | RNA-Seq     | undifferentiated   hESC line H9 cells                      | 2          | untreated                                       | Krendl _et al_.     | H9_Krendl          |
+| PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 8 hours of BMP4 treatment       | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_8h_Krendl  |
+| PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 16 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_16h_Krendl |
+| PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 24 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_D1_Krendl  |
+| PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 48 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_D2_Krendl  |
+| PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 72 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_D3_Krendl  |
 
 ## Other datasets
 
