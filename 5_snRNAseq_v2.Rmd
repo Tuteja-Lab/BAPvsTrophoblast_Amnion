@@ -197,7 +197,7 @@ dcells
 
 ### Number of cells vs. genes
 
-```{r otherQC3, fig.cap="Fig 5.4: Number of cells vs. total gene coutns", fig.width=8, fig.height=5}
+```{r otherQC3, fig.cap="Fig 5.4: Number of cells vs. total gene counts", fig.width=8, fig.height=5}
 ngenes <-
   ggplot(metadata, aes(x = seq_folder, y = log10(nGene), fill = seq_folder)) +
   geom_boxplot() +
@@ -347,7 +347,7 @@ counts <-
 counts <-
   counts[grep(pattern = "^MT",
               x = rownames(counts),
-              invert = TRUE), ]
+              invert = TRUE), ] #why filtering for MT genes twice?
 counts <-
   counts[grep(pattern = "^RPL",
               x = rownames(counts),

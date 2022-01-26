@@ -112,7 +112,7 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
 ### Transformation:
 ```{r vst, warnings=TRUE, message=FALSE}
 vst <- assay(vst(dds))
-p <- pca(vst, metadata = coldata, removeVar = 0.1)
+p <- pca(vst, metadata = coldata, removeVar = 0.1) ##why is this needed?
 vsd <- vst(dds, blind = FALSE)
 pcaData <-
   plotPCA(vsd,
