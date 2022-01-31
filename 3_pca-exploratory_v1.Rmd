@@ -1,5 +1,5 @@
 ---
-title: "Section 3: PCA plots"
+title: "Section 3: PCA plots (exploratory analyses)"
 date: "`r Sys.Date()`"
 author:
   - name: Arun Seetharam
@@ -34,6 +34,7 @@ knitr::opts_knit$set(width = 75)
 This section uses the count data (all datasets) generated in Section 1 for cluster analyses. Briefly, the count data are imported in R, batch corrected using `ComBat_seq`, `vst` transformation and clustering is performed using `DESeq2`, and results are visualized as PCA plots.
 
 
+
 # Prerequisites
 
 R packages required for this section are loaded.
@@ -53,12 +54,13 @@ library(scales)
 library(htmlwidgets)
 library(factoextra)
 library(spatstat.core)
+library(cluster)
 ```
 
 
 # PCA plots for all datasets
 
-## Import datasets
+## Prepare datasets
 
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
@@ -89,7 +91,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## Batch correction
+### Batch correction
 
 Using `Combat_seq` (SVA package) run batch correction - using bioproject IDs as variable (dataset origin).
 
@@ -100,7 +102,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## run DESeq2
+### run DESeq2
 
 The batch corrected read counts are then used for running DESeq2 analyses.
 
@@ -110,9 +112,10 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               design = ~ group)
 ```
 
-## Transformation:
+### Transformation:
 ```{r vst, warnings=TRUE, message=FALSE}
 vst <- assay(vst(dds))
+p <- pca(vst, metadata = coldata, removeVar = 0.1) ##why is this needed?
 vsd <- vst(dds, blind = FALSE)
 pcaData <-
   plotPCA(vsd,
@@ -122,70 +125,8 @@ percentVar <- round(100 * attr(pcaData, "percentVar"))
 ```
 
 
-3D PCA plot function:
-```{r pca3d, warnings=TRUE, message=FALSE}
-# @ Thomas W. Battaglia
 
-#' Plot DESeq2's PCA plotting with Plotly 3D scatterplot
-#'
-#' The function will generate a plot_ly 3D scatter plot image for
-#' a 3D exploration of the PCA.
-#'
-#' @param object a DESeqTransform object, with data in assay(x), produced for example by either rlog or varianceStabilizingTransformation.
-#' @param intgroup interesting groups: a character vector of names in colData(x) to use for grouping
-#' @param ntop number of top genes to use for principal components, selected by highest row variance
-#' @param returnData should the function only return the data.frame of PC1, PC2 and PC3 with intgroup covariates for custom plotting (default is FALSE)
-#' @return An object created by plot_ly, which can be assigned and further customized.
-#' @export
-plotPCA3D <-
-  function (object,
-            intgroup = "condition",
-            ntop = 500,
-            returnData = FALSE) {
-    rv <- rowVars(assay(object))
-    select <-
-      order(rv, decreasing = TRUE)[seq_len(min(ntop, length(rv)))]
-    pca <- prcomp(t(assay(object)[select,]))
-    percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
-    if (!all(intgroup %in% names(colData(object)))) {
-      stop("the argument 'intgroup' should specify columns of colData(dds)")
-    }
-    intgroup.df <-
-      as.data.frame(colData(object)[, intgroup, drop = FALSE])
-    group <- if (length(intgroup) > 1) {
-      factor(apply(intgroup.df, 1, paste, collapse = " : "))
-    }
-    else {
-      colData(object)[[intgroup]]
-    }
-    d <- data.frame(
-      PC1 = pca$x[, 1],
-      PC2 = pca$x[, 2],
-      PC3 = pca$x[, 3],
-      group = group,
-      intgroup.df,
-      name = colnames(object)
-    )
-    if (returnData) {
-      attr(d, "percentVar") <- percentVar[1:3]
-      return(d)
-    }
-    message("Generating plotly plot")
-    p <- plotly::plot_ly(
-      data = d,
-      x = ~ PC1,
-      y = ~ PC2,
-      z = ~ PC3,
-      color = group,
-      mode = "markers",
-      type = "scatter3d"
-    )
-    return(p)
-  }
-```
-
-
-## Process data for PCA (all samples)
+## PCA plot (all)
 
 PCA plot for the dataset that includes all libraries.
 
@@ -193,7 +134,7 @@ PCA plot for the dataset that includes all libraries.
 rv <- rowVars(assay(vsd))
 select <-
   order(rv, decreasing = TRUE)[seq_len(min(500, length(rv)))]
-pca <- prcomp(t(assay(vsd)[select, ]))
+pca <- prcomp(t(assay(vsd)[select, ]), center=TRUE, scale.=FALSE)
 percentVar <- pca$sdev ^ 2 / sum(pca$sdev ^ 2)
 intgroup = c("group", "authors")
 intgroup.df <- as.data.frame(colData(vsd)[, intgroup, drop = FALSE])
@@ -212,37 +153,37 @@ d <- data.frame(
 )
 ```
 
-## Components 1 and 2
+### Components 1 and 2
 
-```{r pcaFull_C1-C2, fig.cap="Fig 3.1: PCA plots (all samples) - PC1 & PC2", fig.width=8, fig.height=8}
+```{r pcaFull_C1-C2, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC1, PC2, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
-  theme(legend.title = element_blank()) +
+  theme(legend.title = element_blank(), legend.position = "none") +
   geom_point(size = 2, stroke = 2) +
   xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
   ylab(paste("PC2", round(percentVar[2] * 100, 2), "% variance"))
 ggplotly(g)
 ```
 
-## Components 1 and 3
-```{r pcaFull_C1-C3, fig.cap="Fig 3.2: PCA plots (all samples) - PC1 and PC3", fig.width=8, fig.height=8}
+### Components 1 and 3
+```{r pcaFull_C1-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC1, PC3, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
-  theme(legend.title = element_blank()) +
+  theme(legend.title = element_blank(), legend.position = "none") +
   geom_point(size = 2, stroke = 2) +
   xlab(paste("PC1", round(percentVar[1] * 100, 2), "% variance")) +
   ylab(paste("PC3", round(percentVar[3] * 100, 2), "% variance"))
 ggplotly(g)
 ```
 
-## Components 2 and 3
-```{r pcaFull_C2-C3, fig.cap="Fig 3.3: PCA plots (all samples) - PC2 and PC3", fig.width=8, fig.height=8}
+### Components 2 and 3
+```{r pcaFull_C2-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC2, PC3, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
-  theme(legend.title = element_blank()) +
+  theme(legend.title = element_blank(), legend.position = "none") +
   geom_point(size = 2, stroke = 2) +
   xlab(paste("PC2", round(percentVar[2] * 100, 2), "% variance")) +
   ylab(paste("PC3", round(percentVar[3] * 100, 2), "% variance"))
@@ -250,8 +191,8 @@ ggplotly(g)
 ```
 
 
-## Scree plot
-```{r pcaFull_scree, fig.cap="Fig 3.4: Scree plot showing variance contributed by each component", fig.width=8, fig.height=5}
+### Scree plot
+```{r pcaFull_scree, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=5}
 scree_plot = data.frame(percentVar)
 scree_plot[, 2] <- c(1:97)
 colnames(scree_plot) <- c("variance", "component_number")
@@ -288,49 +229,104 @@ g <-
     axis.title.x = element_text(color = "black", size = 14, face = "bold")
   ) +
   xlab("Components") +
-  ylab("Percent Variance") + ggtitle("All samples")
-scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks())
+  ylab("Percent Variance") + ggtitle("All samples") +
+scale_y_continuous(breaks = pretty_breaks())
 ggplotly(g)
 ```
 
-## Euclidean Distance
 
-```{r pcaFull_euc_partial, warnings=TRUE, message=FALSE, fig.cap="Fig 3.5: Heatmap of Euclidean Distance using first 3 components (all samples)", fig.width=12, fig.height=10}
-pca <-
-  prcomp(t(assay(vsd)[select,]),
-         center = TRUE,
-         scale. = FALSE,
-         rank. = 3)
+## Clustering Principal Components
+
+### Method 1: K-Means
+
+Using the first 3 components (PC1, PC2 and PC3) for clustering. Since the data has 41 different samples, the `k.max` is set to 41.
+
+```{r pca1_recal,  warnings=TRUE, message=FALSE}
+pca <- prcomp(t(assay(vsd)[select, ]), center=TRUE, scale.=FALSE, rank. = 3)
 results <- pca$x
-distance <- get_dist(results, method = "euclidean")
-write.table(
-  as.matrix(distance),
-  "assets/all_samples-PC1-PC2-PC3.tsv",
-  row.names = T,
-  qmethod = "double",
-  sep = "\t"
-)
-fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 ```
 
-```{r pcaFull_euc_full, warnings=TRUE, message=FALSE, fig.cap="Fig 3.6: Heatmap of Euclidean Distance using all components (all samples)", fig.width=12, fig.height=10}
-pca <- prcomp(t(assay(vsd)[select,]), center = TRUE, scale. = FALSE)
-results <- pca$x
-distance <- get_dist(results, method = "euclidean")
-write.table(
-  as.matrix(distance),
-  "assets/all_samples-allPC.tsv",
-  row.names = T,
-  qmethod = "double",
-  sep = "\t"
-)
-fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+```{r pca1_cluster, fig.cap="Fig 3.1: Silhouette Statistic for finding optimal number of clusters", fig.width=8, fig.height=5}
+fviz_nbclust(results, FUNcluster=kmeans, k.max = 41) 
+```
+
+```{r pca1_gap, fig.cap="Fig 3.1: Gap Statistic for finding optimal number of clusters", fig.width=8, fig.height=5}
+fviz_nbclust(results, FUNcluster=kmeans, method="gap_stat", k.max = 41)
 ```
 
 
-# PCA plot for diifferentiated cell libraries (no amnion datasets)
+```{r pca1_eucdis, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+km1<-eclust(results, "kmeans", hc_metric="eucliden", k=4)
+```
+```{r pca1_eucdis2, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+km1<-eclust(results, "kmeans", hc_metric="eucliden", k=7)
+```
 
-## Import datasets
+```{r pca1_mandis, fig.cap="Fig 3.1: Manhattan distance for optimal clusters", fig.width=8, fig.height=5}
+km2<-eclust(results, "kmeans", hc_metric="manhattan", k=4)
+```
+
+```{r pca1_mandis, fig.cap="Fig 3.1: Manhattan distance for optimal clusters", fig.width=8, fig.height=5}
+km2<-eclust(results, "kmeans", hc_metric="manhattan", k=7)
+```
+
+```{r pca1_shilstatE, fig.cap="Fig 3.1: Silhouette Statistic (Euclidean)", fig.width=8, fig.height=5}
+fviz_silhouette(km1) 
+```
+```{r pca1_shilstatM, fig.cap="Fig 3.1: Silhouette Statistic (Manhattan)", fig.width=14, fig.height=12}
+pca <- prcomp(t(assay(vsd)[select, ]), center=TRUE, scale.=FALSE, rank. = 3)
+results <- pca$x
+distance <- get_dist(results, method = "euclidean")
+fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
+```
+
+### Method 2: Partitioning Around Medoids (PAM)
+
+
+```{r pca1_pam1, fig.cap="Fig 3.1: Silhouette Statistic for finding optimal number of clusters", fig.width=8, fig.height=5}
+fviz_nbclust(results, FUNcluster=cluster::pam, k.max = 41) 
+```
+
+```{r pca1_gap, fig.cap="Fig 3.1: Gap Statistic for finding optimal number of clusters", fig.width=8, fig.height=5}
+fviz_nbclust(results, FUNcluster=cluster::pam, method="gap_stat", k.max = 41)
+```
+
+
+```{r pca1_eucdis, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+pam1<-eclust(results, "pam", k=5) 
+```
+
+```{r pca1_mandis, fig.cap="Fig 3.1: Manhattan distance for optimal clusters", fig.width=8, fig.height=5}
+fviz_silhouette(pam1)
+```
+
+
+### Method 3: Hierarchical Clustering
+
+```{r pca1_hc1, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+dm<-dist(results) 
+hc<-hclust(dm, method="complete") # simple dendrogram
+plot(hc, hang=-1) 
+rect.hclust(hc, k=7, border="red") 
+clust.vec.5<-cutree(hc, k=7) 
+```
+
+```{r pca1_hc1, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+plot(density(dm))
+```
+
+
+```{r pca1_hc1, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+fviz_cluster(list(data=results, cluster=clust.vec.5))
+```
+
+
+```{r pca1_hc1, fig.cap="Fig 3.1: Euclidean distance for optimal clusters", fig.width=8, fig.height=5}
+plot(silhouette(clust.vec.5, dm))
+```
+## PCA plot for diifferentiated cell libraries (no amnion datasets)
+
+### Import datasets
 
 The `counts` data and its associated metadata (`coldata`) are imported for analyses.
 
@@ -361,8 +357,7 @@ all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
 ```
 
-## Batch correction
-
+### Batch correction
 Using `ComBat_seq` (SVA package) run batch correction - using bioproject IDs as variable (dataset origin).
 
 ```{r batchcorrect2, warnings=TRUE, message=TRUE}
@@ -372,7 +367,7 @@ all(rownames(coldata2) %in% colnames(cts2))
 cts2 <- cts2[, rownames(coldata2)]
 ```
 
-## Run DESeq2
+### Run DESeq2
 The batch corrected read counts are then used for running DESeq2 analyses.
 
 ```{r deseq2b, warnings=TRUE, message=FALSE}
@@ -381,7 +376,7 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               design = ~ group)
 ```
 
-## Transformation:
+### Transformation:
 
 ```{r vst2, warnings=TRUE, message=FALSE}
 vsd <- vst(dds, blind = FALSE)
@@ -392,7 +387,7 @@ pcaData <-
 percentVar <- round(100 * attr(pcaData, "percentVar"))
 ```
 
-## Process data for PCA (differenticated)
+## PCA plot (differenticated)
 
 ```{r pcaDif_comp, warnings=TRUE, message=FALSE}
 rv <- rowVars(assay(vsd))
@@ -417,9 +412,9 @@ d <- data.frame(
 )
 ```
 
-## Components 1 and 2
+### Components 1 and 2
 
-```{r pcaDif_C1-C2, fig.cap="Fig 3.7: PCA plots (diifferentiated) - PC1 and PC2", fig.width=8, fig.height=8}
+```{r pcaDif_C1-C2, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC1, PC2, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -430,8 +425,8 @@ g <- ggplot(d, aes(PC1, PC2, color = group.1, shape = authors)) +
 ggplotly(g)
 ```
 
-## Components 1 and 3
-```{r pcaDif_C1-C3, fig.cap="Fig 3.8: PCA plots (diifferentiated) - PC1 and PC3", fig.width=8, fig.height=8}
+### Components 1 and 3
+```{r pcaDif_C1-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC1, PC3, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -442,8 +437,8 @@ g <- ggplot(d, aes(PC1, PC3, color = group.1, shape = authors)) +
 ggplotly(g)
 ```
 
-## Components 2 and 3
-```{r pcaDif_C2-C3, fig.cap="Fig 3.9: PCA plots (diifferentiated) - PC2 and PC3", fig.width=8, fig.height=8}
+### Components 2 and 3
+```{r pcaDif_C2-C3, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC2, PC3, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -455,8 +450,8 @@ ggplotly(g)
 ```
 
 
-## Scree plot
-```{r pcaDif_scree, fig.cap="Fig 3.10: Scree plot showing variance contributed by each component (diifferentiated)", fig.width=8, fig.height=5}
+### Scree plot
+```{r pcaDif_scree, fig.cap="Fig 3.1: PCA plots (all samples)", fig.width=8, fig.height=8}
 scree_plot = data.frame(percentVar)
 end = length(scree_plot$percentVar)
 scree_plot[, 2] <- c(1:end)
@@ -495,63 +490,21 @@ g <- ggplot(scree_plot, aes(component_number, variance * 100)) +
     axis.title.x = element_text(color = "black", size = 14, face = "bold")
   ) +
   xlab("Components") +
-  ylab("Percent Variance") + ggtitle("differentiated samples")
+  ylab("Percent Variance") + ggtitle("Differntiated samples")
 scale_y_continuous(expand = expansion(mult = c(0, .1)), breaks = pretty_breaks())
 ggplotly(g)
 ```
-## Euclidean Distance
 
-```{r pcadiff_euc_partial, warnings=TRUE, message=FALSE, fig.cap="Fig 3.11: Heatmap of Euclidean Distance using first 3 components (diifferentiated)", fig.width=12, fig.height=10}
-pca <-
-  prcomp(t(assay(vsd)[select,]),
-         center = TRUE,
-         scale. = FALSE,
-         rank. = 3)
-results <- pca$x
-distance <- get_dist(results, method = "euclidean")
-write.table(
-  as.matrix(distance),
-  "assets/diff_samples-PC1-PC2-PC3.tsv",
-  row.names = T,
-  qmethod = "double",
-  sep = "\t"
-)
-fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
-```
-
-```{r pcadiff_euc_full, warnings=TRUE, message=FALSE, fig.cap="Fig 3.12: Heatmap of Euclidean Distance using all components (diifferentiated)", fig.width=12, fig.height=10}
-pca <- prcomp(t(assay(vsd)[select,]), center = TRUE, scale. = FALSE)
-results <- pca$x
-distance <- get_dist(results, method = "euclidean")
-write.table(
-  as.matrix(distance),
-  "assets/diff_samples-allPC.tsv",
-  row.names = T,
-  qmethod = "double",
-  sep = "\t"
-)
-fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
-```
-
-
-# Interactive 3D PCA plot
-
-
-```{r pcaFull_3D, warnings=TRUE, message=FALSE}
-g <- plotPCA3D(vsd, intgroup = c("group", "authors"))
-saveWidget(g, file = "PCA_full.html")
-```
-
+### Interactive 3D PCA plot
 
 ```{r pcaDif_3D, warnings=TRUE, message=FALSE}
 g <- plotPCA3D(vsd, intgroup = c("group", "authors"))
-saveWidget(g, file = "PCA_dif.html")
+saveWidget(g, file = "interactive/PCA_dif.html")
 ```
-1. [Interactive 3D PCA plot (all samples)](PCA_full.html){target="_blank"}
-2. [Interactive 3D PCA plot (diifferentiated samples)](PCA_dif.html){target="_blank"}
+[Interactive 3D PCA plot for diifferentiated samples](interactive/PCA_dif.html){target="_blank"}
 
 
-# Session Information
+## Session Information
 
 ```{r sessioninfo}
 sessionInfo()

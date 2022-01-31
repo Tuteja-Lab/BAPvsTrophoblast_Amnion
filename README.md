@@ -1,16 +1,17 @@
 # BAPvsTrophoblast_Amnion
+
 ## [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Ames IA-50011
 
-
-**The HTML version of this documentation is available [here](https://tuteja-lab.github.io/BAPvsTrophoblast_Amnion)**: 
+**The HTML version of this documentation is available [here](https://tuteja-lab.github.io/BAPvsTrophoblast_Amnion)**:
 
 ### Documentation
 
-1. [Section 1: Preparing datasets for anlayses](1_input-data-prep_v1.Rmd)
-2. [Section 2: DESeq2 analyses](2_de-analyses_v1.Rmd)
-3. [Section 3: PCA plots for the datasets](3_pca-plots_v1.Rmd)
-4. [Section 4: Heatmaps for amnion genes](4_heatmaps_v1.Rmd)
-5. [Section 5: sn/scRNAseq data analyses](5_snRNAseq_v1.Rmd)
+1. [Section 1: Preparing datasets for anlayses](1_input-data-prep_v2.Rmd)
+2. [Section 2: DESeq2 analyses](2_de-analyses_v2.Rmd)
+3. [Section 3: PCA plots for the datasets](3_pca-plots_v2.Rmd)
+4. [Section 4: Finding novel amnion markers](4_heatmaps_v2.Rmd)
+5. [Section 5: sn/scRNAseq data analyses](5_snRNAseq_v2.Rmd)
+6. [Section 6: Custom encrichment dataset preparation](6_custom-PCE_v2.Rmd)
 
 ### Data availability
 
@@ -48,6 +49,12 @@ The data used in this study are publicly available:
 | E-MTAB-10429 | RNA-Seq    | 1st Trimester_TSC (Okae et al) (CT27, CT29, CT30)          | 3          | Okae et al. Cell Stem   Cell 2018               | Sheridan et al. | CT_SCT_Okae           |
 | E-MTAB-10429 | RNA-Seq    | Organoid_villous   (Turco et al) (R053,   X011, X021,X035) | 4          | Turco et al. Nature   2018                      | Sheridan et al. | org_villous           |
 | E-MTAB-10429 | RNA-Seq    | Organoid_EVT   (Turco et al) (R053,   X011, X021, x035)    | 4          | Turco et al. Nature   2018                      | Sheridan et al. | org_EVT               |
+| PRJNA414247  | RNA-Seq    | undifferentiated   hESC line H9 cells                      | 2          | untreated                                       | Krendl et al.   | H9_Krendl             |
+| PRJNA414247  | RNA-Seq    | hESC line H9 cells   after 8 hours of BMP4 treatment       | 2          | BMP4 exposed H9 cells                           | Krendl et al.   | H9_BMP4_8h_Krendl     |
+| PRJNA414247  | RNA-Seq    | hESC line H9 cells   after 16 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl et al.   | H9_BMP4_16h_Krendl    |
+| PRJNA414247  | RNA-Seq    | hESC line H9 cells   after 24 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl et al.   | H9_BMP4_D1_Krendl     |
+| PRJNA414247  | RNA-Seq    | hESC line H9 cells   after 48 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl et al.   | H9_BMP4_D2_Krendl     |
+| PRJNA414247  | RNA-Seq    | hESC line H9 cells   after 72 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl et al.   | H9_BMP4_D3_Krendl     |
 | PRJNA352339  | RNA-Seq    | undifferentiated H9   ESC, feeder free                     | 3          | mTeSR                                           | Shao et al.     | H9_ESC_Shao           |
 | PRJNA352339  | RNA-Seq    | H9 ESC-derived   amnion-like cells (3D amniogenesis)       | 3          | Shao et al. Nature   Mater 2017                 | Shao et al.     | H9_amnion_Shao        |
 | PRJNA276463  | RNA-Seq    | CC2 Amnion_18_female                                       | 1          | 18 gestational weeks                            | Roost et al.    | amnion_18wk           |
@@ -62,20 +69,16 @@ The data used in this study are publicly available:
 | PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D5                              | 1          | ACE treatment                                   | Io et al.       | H9_sc.nCT_D5_Io       |
 | PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D10                             | 1          | ACE treatment                                   | Io et al.       | H9_sc.nCT_D10_Io      |
 
-
 ### Other datasets
 
 Syncytiotrophoblast (STB) genes expression were tested against [Zhou et. al.](https://pubmed.ncbi.nlm.nih.gov/31435013), dataset ([GSE109555](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109555)).
-
-
 
 ### Contacts
 1. Project related questions: Geetu Tuteja
 2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/BAPvsTrophoblast_Amnion/issues/new) here on GitHub.
 
-
 ### Publication
 
 If you use the scripts from this repository in your research, please cite this publication:
 
-coming soon
+_coming soon_
