@@ -31,18 +31,30 @@ knitr::opts_chunk$set(
 knitr::opts_knit$set(width = 75)
 ```
 
-# BAPvsTrophoblast_Amnion
+## BAPvsTrophoblast_Amnion
 
 [Tuteja Lab](https://www.tutejalab.org), Iowa State University, Ames IA-50011
 
+## Publication
+
+If you use the scripts from this repository in your research, please cite this publication:
+
+_coming soon_
+
+## Contacts
+
+1. Project related questions: Geetu Tuteja
+2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/BAPvsTrophoblast_Amnion/issues/new) here on GitHub.
+
+
 ## Documentation
 
-1. [Section 1: Input data preparation anlayses](1_input-data-prep_v2.html)
-2. [Section 2: DESeq2 analyses](2_de-analyses_v2.html)
-3. [Section 3: PCA plots for the datasets](3_pca-plots_v2.html)
-4. [Section 4: Finding novel amnion markers](4_heatmaps_v2.html)
-5. [Section 5: sn/scRNAseq data analyses](5_snRNAseq_v2.html)
-5. [Section 6: Custom encrichment dataset preparation](6_custom-PCE_v2.html)
+1. [Section 1: Pre-processing](1_input-data-prep_v2.html)
+2. [Section 2: DESeq2 analysis](2_de-analyses_v2.html)
+3. [Section 3: PCA plots](3_pca-plots_v2.html)
+4. [Section 4: Amnion Markers](4_heatmaps_v2.html)
+5. [Section 5: snRNAseq/scRNAseq analysis](5_snRNAseq_v2.html)
+5. [Section 6: Custom PCE dataset generation](6_custom-PCE_v2.html)
 
 ## Data availability
 
@@ -89,18 +101,19 @@ The data used in this study are publicly available:
 | PRJNA276463  | RNA-Seq    | CI1 Amnion_16_male                                         | 2          | 16 gestational weeks                            | Roost _et al_.    | amnion_16wk           |
 | PRJNA276463  | RNA-Seq    | CR1 Amnion_22_male                                         | 2          | 22 gestational weeks                            | Roost _et al_.    | amnion_22wk           |
 | PRJNA316992  | RNA-Seq    | Term Amnion   (Cont2,3,4,4b,6,7,8,9,11,12,14,15 RNA-seq)   | 12         | Term fetal amnion                               | Suzuki _et al_.   | amnion_term           |
-| PRJNA720858  | snRNA-Seq  | H1 ESC-derived TB_BAP   D8 (20% O2)_snRNA-seq              | 2          | BAP treatment                                   | Khan _et al_.     | H1_BAP_D8_20pcO2_Khan |
-| PRJNA720858  | snRNA-Seq  | H1 ESC-derived TB_BAP   D8 (5% O2)_snRNA-seq               | 2          | BAP treatment                                   | Khan _et al_.     | H1_BAP_D8_5pcO2_Khan  |
-| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nTE_D2                              | 1          | ABPJ treatment                                  | Io _et al_.       | H9_sc.nTE_D2_Io       |
-| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nTE_D3                              | 1          | ABPJ treatment                                  | Io _et al_.       | H9_sc.nTE_D3_Io       |
-| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D5                              | 1          | ACE treatment                                   | Io _et al_.       | H9_sc.nCT_D5_Io       |
-| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D10                             | 1          | ACE treatment                                   | Io _et al_.       | H9_sc.nCT_D10_Io      |
 | PRJNA414247 | RNA-Seq     | undifferentiated   hESC line H9 cells                      | 2          | untreated                                       | Krendl _et al_.     | H9_Krendl          |
 | PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 8 hours of BMP4 treatment       | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_8h_Krendl  |
 | PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 16 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_16h_Krendl |
 | PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 24 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_D1_Krendl  |
 | PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 48 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_D2_Krendl  |
 | PRJNA414247 | RNA-Seq     | hESC line H9 cells   after 72 hours of BMP4 treatment      | 2          | BMP4 exposed H9 cells                           | Krendl _et al_.     | H9_BMP4_D3_Krendl  |
+| PRJNA720858  | snRNA-Seq  | H1 ESC-derived TB_BAP   D8 (20% O2)_snRNA-seq              | 2          | BAP treatment                                   | Khan _et al_.     | H1_BAP_D8_20pcO2_Khan |
+| PRJNA720858  | snRNA-Seq  | H1 ESC-derived TB_BAP   D8 (5% O2)_snRNA-seq               | 2          | BAP treatment                                   | Khan _et al_.     | H1_BAP_D8_5pcO2_Khan  |
+| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nTE_D2                              | 1          | ABPJ treatment                                  | Io _et al_.       | H9_sc.nTE_D2_Io       |
+| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nTE_D3                              | 1          | ABPJ treatment                                  | Io _et al_.       | H9_sc.nTE_D3_Io       |
+| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D5                              | 1          | ACE treatment                                   | Io _et al_.       | H9_sc.nCT_D5_Io       |
+| PRJNA705594  | scRNA-Seq  | Naïve H9 ESC-derived   nCT_D10                             | 1          | ACE treatment                                   | Io _et al_.       | H9_sc.nCT_D10_Io      |
+
 
 ## Other datasets
 
@@ -111,14 +124,4 @@ Custom [`PlacentaCellEnrich`](https://placentacellenrich.gdcb.iastate.edu/)  wer
 
 
 
-## Contacts
 
-1. Project related questions: Geetu Tuteja
-2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/BAPvsTrophoblast_Amnion/issues/new) here on GitHub.
-
-
-## Publication
-
-If you use the scripts from this repository in your research, please cite this publication:
-
-_coming soon_

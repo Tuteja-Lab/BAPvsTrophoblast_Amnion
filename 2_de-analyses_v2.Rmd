@@ -120,7 +120,7 @@ dds <- DESeq(dds)
 dds
 ```
 
-Various contrasts are set up as follows (a total of 9 combinations)
+Various contrasts are set up as follows (a total of 8 combinations)
 
 ```{r cotnrasts, warnings=TRUE, message=FALSE}
 res.PH9vsBAP <-

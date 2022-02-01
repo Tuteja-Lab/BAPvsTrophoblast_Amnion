@@ -33,7 +33,12 @@ knitr::opts_knit$set(width = 75)
 
 ## Generating custom PCE datasets
 
-list the datasets being used in the section.
+Following datasets were used for [`PlacentaCellEnrich`](https://placentacellenrich.gdcb.iastate.edu) (`PCE`)
+
+1. [Vento-Tormo R _et al_.](): scRNA-Seq data across 32 placental and decidual cells (built-in default dataset for [`PCE`].
+2. [Castel _et al.,_](https://pubmed.ncbi.nlm.nih.gov/33238118/) datasets, using [Petropoulos _et al.,_](https://pubmed.ncbi.nlm.nih.gov/27062923/) and [Zhou _et al.,_](https://pubmed.ncbi.nlm.nih.gov/31435013/).
+3. [Xiang _et. al._](https://pubmed.ncbi.nlm.nih.gov/31830756/) dataset
+
 
 ## Prerequisites
 

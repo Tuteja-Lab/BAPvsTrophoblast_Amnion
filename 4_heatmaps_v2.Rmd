@@ -162,7 +162,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-### run DESeq2
+### Run DESeq2
 
 The batch corrected read counts are then used for running DESeq2 analyses.
 
@@ -176,7 +176,7 @@ dds <- dds[keep,]
 dds <- DESeq(dds)
 ```
 
-### Normalize counts.
+### Normalize counts
 
 ```{r normtable, warnings=TRUE, message=FALSE}
 normalized_counts <- counts(dds, normalized = T) %>%
@@ -186,7 +186,7 @@ normalized_counts <- normalized_counts %>%
   as_tibble()
 ```
 
-## Ensembl id table
+## Ensembl ID table
 
 The gene lists have Ensembl gene-ID-version. We need them as gene-IDs. We also need other metadata later for these lists.
 From Ensembl we will download metadata and attach to these lists.
@@ -411,7 +411,8 @@ runheatmap <-
 
 ```{r corplotFun, warnings=TRUE, message=FALSE}
 corPlot <- function(get_table = table,
-                    ChartTitle = "Title") {
+                    ChartTitle = "Title",
+                    mycolor = "darkorchid") {
   norm.filtered.subset.long <- get_table
   norm.filtered.subset.table <-
     dcast(norm.filtered.subset.long,
@@ -431,7 +432,7 @@ corPlot <- function(get_table = table,
     col = col(200),
     type = "upper",
     order = "hclust",
-    addCoef.col = "darkorchid",
+    addCoef.col = mycolor,
     pch.cex = 1.5,
     p.mat = p.mat,
     insig = 'label_sig',
@@ -627,7 +628,7 @@ Amnion markers genes using Roost dataset (generated using `TissueEnrich`)
 amnion.roost.names <- addGeneIds(amnion.roost)
 ```
 
-Amnion markers genes using Roost dataset (from Io _et al_.,)
+Amnion markers genes using Roost dataset (from Io _et al_., 2021)
 ```{r markers2, warnings=TRUE, message=FALSE}
 file1 <-
   "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-Fig6b.txt"
@@ -646,48 +647,24 @@ fig6b <- merge(
 ) %>% drop_na() 
 ```
 
-Money amnion markers
-```{r markers3, warnings=TRUE, message=FALSE}
-file2 <-
-  "~/TutejaLab/amnion_for_ms_20210715/heatmaps.v2/Fig6b_and_monkeygenes/genes-monkey.txt"
-monkey <-
-  read.csv(file2,
-           sep = "\t",
-           header = TRUE,
-           stringsAsFactors = FALSE)
-monkey <- merge(
-  monkey,
-  annot,
-  by.x = "genes",
-  by.y = "external_gene_name",
-  all.x = TRUE,
-  all.y = FALSE
-) %>% drop_na() 
-
-```
-
 ## Format Conversion
 
 ```{r tableout1, warnings=TRUE, message=FALSE}
 amnion.roost.new.main <- getTable.main(amnion.roost.names, name1)
 amnion.roost.old.main <- getTable.main(fig6b, name1)
-amnion.monkey.main    <- getTable.main(monkey, name1)
 amnion.roost.new.supp <- getTable.main(amnion.roost.names, name2)
 amnion.roost.old.supp <- getTable.main(fig6b, name2)
-amnion.monkey.supp    <- getTable.main(monkey, name2)
 ```
 
 ```{r tableout2, warnings=TRUE, message=FALSE}
 amnion.roost.new.main.info <- addSampleInfo(amnion.roost.new.main)
 amnion.roost.old.main.info <- addSampleInfo(amnion.roost.old.main)
-amnion.monkey.main.info    <- addSampleInfo(amnion.monkey.main)
 amnion.roost.new.supp.info <- addSampleInfo(amnion.roost.new.supp)
 amnion.roost.old.supp.info <- addSampleInfo(amnion.roost.old.supp)
-amnion.monkey.supp.info    <- addSampleInfo(amnion.monkey.supp)
 ```
 
 
-## Visulaization (new Amnion marker genes)
+## Visualization (new Amnion marker genes)
 
 
 ```{r hm1a, fig.cap="Fig 4.1A: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
@@ -699,7 +676,7 @@ runheatmap(
 )
 ```
 
-```{r cor1a, fig.cap="Fig 4.1B: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+```{r cor1a, fig.cap="Fig 4.1B: Corelation plot for the new amnion marker genes", fig.width=12, fig.height=12}
 corPlot(amnion.roost.new.main.info)
 ```
 ```{r normeach1a, fig.cap="Fig 4.1C: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
@@ -731,7 +708,7 @@ vlnPlot(amnion.roost.new.main.info)
 ```
   
 
-## Visulaization (old Amnion marker genes)
+## Visualization (old Amnion marker genes)
 
 
 ```{r hm1b, fig.cap="Fig 4.2A: Heatmap for the Io amnion marker genes", fig.width=8, fig.height=20}
@@ -743,8 +720,8 @@ runheatmap(
 )
 ```
 
-```{r cor1b, fig.cap="Fig 4.2B: Corelation plot for the Io amnion marker genes", fig.width=8, fig.height=8}
-corPlot(amnion.roost.old.main.info)
+```{r cor1b, fig.cap="Fig 4.2B: Corelation plot for the Io amnion marker genes", fig.width=12, fig.height=12}
+corPlot(amnion.roost.old.main.info, mycolor = "yellow")
 ```
 ```{r normeach1b, fig.cap="Fig 4.2C: distribution plot for the Io amnion marker genes", fig.width=8, fig.height=8}
 normTestEach(amnion.roost.old.main.info)
@@ -778,7 +755,7 @@ vlnPlot(amnion.roost.old.main.info)
 
 
 
-## Visulaization (new Amnion marker genes) for amnion and organoid datasets
+## Visualization (new Amnion marker genes) for amnion and organoid datasets
 
 
 ```{r hm1c, fig.cap="Fig 4.3A: Heatmap for the new amnion marker genes", fig.width=8, fig.height=20}
@@ -790,7 +767,7 @@ runheatmap(
 )
 ```
 
-```{r cor1c, fig.cap="Fig 4.3B: Corelation plot for the new amnion marker genes", fig.width=8, fig.height=8}
+```{r cor1c, fig.cap="Fig 4.3B: Corelation plot for the new amnion marker genes", fig.width=12, fig.height=12}
 corPlot(amnion.roost.new.supp.info)
 ```
 ```{r normeach1c, fig.cap="Fig 4.3C: distribution plot for the new amnion marker genes", fig.width=8, fig.height=8}
@@ -823,7 +800,7 @@ vlnPlot(amnion.roost.new.supp.info)
 
 
 
-## Visulaization (old Amnion marker genes) for amnion and organoid datasets
+## Visualization (old Amnion marker genes) for amnion and organoid datasets
 
 
 ```{r hm1d, fig.cap="Fig 4.4A: Heatmap for the Io amnion marker genes", fig.width=8, fig.height=20}
@@ -835,8 +812,8 @@ runheatmap(
 )
 ```
 
-```{r cor1d, fig.cap="Fig 4.4B: Corelation plot for the Io amnion marker genes", fig.width=8, fig.height=8}
-corPlot(amnion.roost.old.supp.info)
+```{r cor1d, fig.cap="Fig 4.4B: Corelation plot for the Io amnion marker genes", fig.width=12, fig.height=12}
+corPlot(amnion.roost.old.supp.info, mycolor = "yellow")
 ```
 ```{r normeach1d, fig.cap="Fig 4.4C: distribution plot for the Io amnion marker genes", fig.width=8, fig.height=8}
 normTestEach(amnion.roost.old.supp.info)

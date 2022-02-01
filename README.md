@@ -74,6 +74,7 @@ The data used in this study are publicly available:
 Syncytiotrophoblast (STB) genes expression were tested against [Zhou et. al.](https://pubmed.ncbi.nlm.nih.gov/31435013), dataset ([GSE109555](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109555)).
 
 ### Contacts
+
 1. Project related questions: Geetu Tuteja
 2. Scripts and workflow related questions: please open an [issue](https://github.com/Tuteja-Lab/BAPvsTrophoblast_Amnion/issues/new) here on GitHub.
 

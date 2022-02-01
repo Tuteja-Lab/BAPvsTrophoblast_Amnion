@@ -6,7 +6,7 @@
     <meta name="generator" content="pandoc" />
 
     
-        <meta name="date" content="2022-01-26" />
+        <meta name="date" content="2022-02-01" />
     
     <title>Section 6: Custom PCE dataset generation</title>
 
@@ -198,14 +198,14 @@
       <li><a href="#session-information">Session Information</a></li>
       </ul>
     </div>
-        <div>
+            <div>
       <ul>
         <li><a href="index.html">README</a></li>
         <li><a href="1_input-data-prep_v2.html">Section 1: Pre-processing</a></li>
         <li><a href="2_de-analyses_v2.html">Section 2: DESeq2 analyses</a></li>
         <li><a href="3_pca-plots_v2.html">Section 3: PCA plots</a></li>
-        <li><a href="4_heatmaps_v2.html">Section 4: Finding Amnon Markers</a></li>
-        <li><a href="5_snRNAseq_v2.html">Section 5: sn/scRNAseq analysis</a></li>
+        <li><a href="4_heatmaps_v2.html">Section 4: Amnion Markers</a></li>
+        <li><a href="5_snRNAseq_v2.html">Section 5: snRNAseq/scRNAseq analysis</a></li>
         <li><a href="6_custom-PCE_v2.html">Section 6: Custom PCE datasets</a></li>
       </ul>
     </div>
@@ -214,7 +214,7 @@
 		      </p>
                         <p class="author"><span class="glyphicon glyphicon-user"></span> Ha Vu
 		<br /><span class="author_affil">Tuteja Lab</span>	      </p>
-                        <p class="date"><span class="glyphicon glyphicon-calendar"></span> 2022-01-26</p>
+                        <p class="date"><span class="glyphicon glyphicon-calendar"></span> 2022-02-01</p>
           </div>
    </div>
      
@@ -226,7 +226,12 @@
 <div id="main">
 <div id="generating-custom-pce-datasets" class="section level2">
 <h2>Generating custom PCE datasets</h2>
-<p>list the datasets being used in the section.</p>
+<p>Following datasets were used for <a href="https://placentacellenrich.gdcb.iastate.edu"><code>PlacentaCellEnrich</code></a> (<code>PCE</code>)</p>
+<ol style="list-style-type: decimal">
+<li><a href>Vento-Tormo R <em>et al</em>.</a>: scRNA-Seq data across 32 placental and decidual cells (built-in default dataset for [<code>PCE</code>].</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/33238118/">Castel <em>et al.,</em></a> datasets, using <a href="https://pubmed.ncbi.nlm.nih.gov/27062923/">Petropoulos <em>et al.,</em></a> and <a href="https://pubmed.ncbi.nlm.nih.gov/31435013/">Zhou <em>et al.,</em></a>.</li>
+<li><a href="https://pubmed.ncbi.nlm.nih.gov/31830756/">Xiang <em>et. al.</em></a> dataset</li>
+</ol>
 </div>
 <div id="prerequisites" class="section level2">
 <h2>Prerequisites</h2>
@@ -580,7 +585,7 @@ Fig X.2: Xiang Dataset tissue enrichement results
 <span id="cb21-36"><a href="#cb21-36" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [1] bitops_1.0-7           fs_1.5.0               lubridate_1.8.0       </span></span>
 <span id="cb21-37"><a href="#cb21-37" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [4] bit64_4.0.5            httr_1.4.2             tools_4.0.5           </span></span>
 <span id="cb21-38"><a href="#cb21-38" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt;  [7] backports_1.2.1        bslib_0.3.1            utf8_1.2.1            </span></span>
-<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [10] R6_2.5.1               DBI_1.1.1              colorspace_2.0-1      </span></span>
+<span id="cb21-39"><a href="#cb21-39" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [10] R6_2.5.1               DBI_1.1.2              colorspace_2.0-1      </span></span>
 <span id="cb21-40"><a href="#cb21-40" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [13] withr_2.4.3            tidyselect_1.1.1       bit_4.0.4             </span></span>
 <span id="cb21-41"><a href="#cb21-41" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [16] compiler_4.0.5         cli_3.1.1              rvest_1.0.0           </span></span>
 <span id="cb21-42"><a href="#cb21-42" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [19] xml2_1.3.3             DelayedArray_0.16.3    labeling_0.4.2        </span></span>
@@ -588,20 +593,20 @@ Fig X.2: Xiang Dataset tissue enrichement results
 <span id="cb21-44"><a href="#cb21-44" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [25] digest_0.6.27          rmarkdown_2.11         XVector_0.30.0        </span></span>
 <span id="cb21-45"><a href="#cb21-45" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [28] pkgconfig_2.0.3        htmltools_0.5.2        highr_0.9             </span></span>
 <span id="cb21-46"><a href="#cb21-46" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [31] dbplyr_2.1.1           fastmap_1.1.0          rlang_0.4.11          </span></span>
-<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [34] readxl_1.3.1           rstudioapi_0.13        RSQLite_2.2.7         </span></span>
+<span id="cb21-47"><a href="#cb21-47" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [34] readxl_1.3.1           rstudioapi_0.13        RSQLite_2.2.9         </span></span>
 <span id="cb21-48"><a href="#cb21-48" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [37] farver_2.1.0           jquerylib_0.1.4        generics_0.1.1        </span></span>
 <span id="cb21-49"><a href="#cb21-49" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [40] jsonlite_1.7.3         RCurl_1.98-1.3         magrittr_2.0.1        </span></span>
 <span id="cb21-50"><a href="#cb21-50" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [43] GenomeInfoDbData_1.2.4 Matrix_1.3-3           Rcpp_1.0.8            </span></span>
 <span id="cb21-51"><a href="#cb21-51" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [46] munsell_0.5.0          fansi_0.4.2            lifecycle_1.0.1       </span></span>
 <span id="cb21-52"><a href="#cb21-52" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [49] stringi_1.7.6          yaml_2.2.1             zlibbioc_1.36.0       </span></span>
-<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [52] grid_4.0.5             blob_1.2.1             crayon_1.4.2          </span></span>
+<span id="cb21-53"><a href="#cb21-53" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [52] grid_4.0.5             blob_1.2.2             crayon_1.4.2          </span></span>
 <span id="cb21-54"><a href="#cb21-54" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [55] lattice_0.20-44        haven_2.4.1            hms_1.1.1             </span></span>
-<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [58] knitr_1.37             pillar_1.6.4           reprex_2.0.0          </span></span>
+<span id="cb21-55"><a href="#cb21-55" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [58] knitr_1.37             pillar_1.6.5           reprex_2.0.0          </span></span>
 <span id="cb21-56"><a href="#cb21-56" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [61] glue_1.4.2             evaluate_0.14          modelr_0.1.8          </span></span>
 <span id="cb21-57"><a href="#cb21-57" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [64] vctrs_0.3.8            rmdformats_1.0.3       tzdb_0.2.0            </span></span>
 <span id="cb21-58"><a href="#cb21-58" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [67] cellranger_1.1.0       gtable_0.3.0           assertthat_0.2.1      </span></span>
 <span id="cb21-59"><a href="#cb21-59" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [70] cachem_1.0.5           xfun_0.29              xtable_1.8-4          </span></span>
-<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [73] broom_0.7.6            memoise_2.0.0          ellipsis_0.3.2</span></span></code></pre></div>
+<span id="cb21-60"><a href="#cb21-60" aria-hidden="true" tabindex="-1"></a><span class="co">#&gt; [73] broom_0.7.6            memoise_2.0.1          ellipsis_0.3.2</span></span></code></pre></div>
 </div>
 </div>
 

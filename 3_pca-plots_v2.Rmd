@@ -100,7 +100,7 @@ all(rownames(coldata) %in% colnames(cts))
 cts <- cts[, rownames(coldata)]
 ```
 
-## run DESeq2
+## Run DESeq2
 
 The batch corrected read counts are then used for running DESeq2 analyses.
 
@@ -328,7 +328,7 @@ fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4
 ```
 
 
-# PCA plot for diifferentiated cell libraries (no amnion datasets)
+# PCA plot for differentiated cell libraries (no amnion datasets)
 
 ## Import datasets
 
@@ -381,7 +381,7 @@ dds <- DESeqDataSetFromMatrix(countData = adjusted_counts,
                               design = ~ group)
 ```
 
-## Transformation:
+## Transformation
 
 ```{r vst2, warnings=TRUE, message=FALSE}
 vsd <- vst(dds, blind = FALSE)
@@ -419,7 +419,7 @@ d <- data.frame(
 
 ## Components 1 and 2
 
-```{r pcaDif_C1-C2, fig.cap="Fig 3.7: PCA plots (diifferentiated) - PC1 and PC2", fig.width=8, fig.height=8}
+```{r pcaDif_C1-C2, fig.cap="Fig 3.7: PCA plots (differentiated) - PC1 and PC2", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC1, PC2, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -431,7 +431,7 @@ ggplotly(g)
 ```
 
 ## Components 1 and 3
-```{r pcaDif_C1-C3, fig.cap="Fig 3.8: PCA plots (diifferentiated) - PC1 and PC3", fig.width=8, fig.height=8}
+```{r pcaDif_C1-C3, fig.cap="Fig 3.8: PCA plots (differentiated) - PC1 and PC3", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC1, PC3, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -443,7 +443,7 @@ ggplotly(g)
 ```
 
 ## Components 2 and 3
-```{r pcaDif_C2-C3, fig.cap="Fig 3.9: PCA plots (diifferentiated) - PC2 and PC3", fig.width=8, fig.height=8}
+```{r pcaDif_C2-C3, fig.cap="Fig 3.9: PCA plots (differentiated) - PC2 and PC3", fig.width=8, fig.height=8}
 g <- ggplot(d, aes(PC2, PC3, color = group.1, shape = authors)) +
   scale_shape_manual(values = 1:8) +
   theme_bw() +
@@ -456,7 +456,7 @@ ggplotly(g)
 
 
 ## Scree plot
-```{r pcaDif_scree, fig.cap="Fig 3.10: Scree plot showing variance contributed by each component (diifferentiated)", fig.width=8, fig.height=5}
+```{r pcaDif_scree, fig.cap="Fig 3.10: Scree plot showing variance contributed by each component (differentiated)", fig.width=8, fig.height=5}
 scree_plot = data.frame(percentVar)
 end = length(scree_plot$percentVar)
 scree_plot[, 2] <- c(1:end)
@@ -501,7 +501,7 @@ ggplotly(g)
 ```
 ## Euclidean Distance
 
-```{r pcadiff_euc_partial, warnings=TRUE, message=FALSE, fig.cap="Fig 3.11: Heatmap of Euclidean Distance using first 3 components (diifferentiated)", fig.width=12, fig.height=10}
+```{r pcadiff_euc_partial, warnings=TRUE, message=FALSE, fig.cap="Fig 3.11: Heatmap of Euclidean Distance using first 3 components (differentiated)", fig.width=12, fig.height=10}
 pca <-
   prcomp(t(assay(vsd)[select,]),
          center = TRUE,
@@ -519,7 +519,7 @@ write.table(
 fviz_dist(distance, gradient = list(low = "#00AFBB", mid = "white", high = "#FC4E07"))
 ```
 
-```{r pcadiff_euc_full, warnings=TRUE, message=FALSE, fig.cap="Fig 3.12: Heatmap of Euclidean Distance using all components (diifferentiated)", fig.width=12, fig.height=10}
+```{r pcadiff_euc_full, warnings=TRUE, message=FALSE, fig.cap="Fig 3.12: Heatmap of Euclidean Distance using all components (differentiated)", fig.width=12, fig.height=10}
 pca <- prcomp(t(assay(vsd)[select,]), center = TRUE, scale. = FALSE)
 results <- pca$x
 distance <- get_dist(results, method = "euclidean")
@@ -548,7 +548,7 @@ g <- plotPCA3D(vsd, intgroup = c("group", "authors"))
 saveWidget(g, file = "PCA_dif.html")
 ```
 1. [Interactive 3D PCA plot (all samples)](PCA_full.html){target="_blank"}
-2. [Interactive 3D PCA plot (diifferentiated samples)](PCA_dif.html){target="_blank"}
+2. [Interactive 3D PCA plot (differentiated samples)](PCA_dif.html){target="_blank"}
 
 
 # Session Information
