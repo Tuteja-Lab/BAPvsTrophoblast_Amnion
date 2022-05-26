@@ -73,9 +73,6 @@ The data used in this study are publicly available:
 
 Syncytiotrophoblast (STB) genes expression were tested against [Zhou et. al.](https://pubmed.ncbi.nlm.nih.gov/31435013), dataset ([GSE109555](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109555)).
 
-
-### Other datasets
-
 Custom [PlacentaCellEnrich](https://placentacellenrich.gdcb.iastate.edu) were generated using: [Xiang _et. al._](https://pubmed.ncbi.nlm.nih.gov/31830756/)(NCBI BioProject: [PRJNA562548](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA562548") and [Castel _et al._](https://pubmed.ncbi.nlm.nih.gov/33238118) publication, using data from [Petropoulos _et al.,_](https://pubmed.ncbi.nlm.nih.gov/27062923) and [Zhou _et al.,_](https://pubmed.ncbi.nlm.nih.gov/31435013) downloaded from [BitBucket](https://gitlab.univ-nantes.fr/E137833T/Castel_et_al_2020)
 
 ### Contacts
