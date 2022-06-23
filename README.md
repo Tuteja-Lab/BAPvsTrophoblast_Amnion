@@ -73,6 +73,8 @@ The data used in this study are publicly available:
 
 Syncytiotrophoblast (STB) genes expression were tested against [Zhou et. al.](https://pubmed.ncbi.nlm.nih.gov/31435013), dataset ([GSE109555](https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE109555)).
 
+Custom [PlacentaCellEnrich](https://placentacellenrich.gdcb.iastate.edu) were generated using: [Xiang _et. al._](https://pubmed.ncbi.nlm.nih.gov/31830756/)(NCBI BioProject: [PRJNA562548](https://www.ncbi.nlm.nih.gov/bioproject/PRJNA562548") and [Castel _et al._](https://pubmed.ncbi.nlm.nih.gov/33238118) publication, using data from [Petropoulos _et al.,_](https://pubmed.ncbi.nlm.nih.gov/27062923) and [Zhou _et al.,_](https://pubmed.ncbi.nlm.nih.gov/31435013) downloaded from [BitBucket](https://gitlab.univ-nantes.fr/E137833T/Castel_et_al_2020)
+
 ### Contacts
 
 1. Project related questions: Geetu Tuteja
@@ -82,4 +84,5 @@ Syncytiotrophoblast (STB) genes expression were tested against [Zhou et. al.](ht
 
 If you use the scripts from this repository in your research, please cite this publication:
 
-_coming soon_
+Seetharam, Arun S., Ha TH Vu, Sehee Choi, Teka Khan, Megan A. Sheridan, Toshihiko Ezashi, R. Michael Roberts, and Geetu Tuteja. "The product of BMP-directed differentiation protocols for human primed pluripotent stem cells is placental trophoblast and not amnion." _Stem Cell Reports_ (2022). Available online 19 May 2022.
+[<img src="https://img.shields.io/badge/-Open_Access-blue?style=flat&logo=Open-Access"/>](https://doi.org/10.1016/j.stemcr.2022.04.014)
